@@ -5,16 +5,19 @@
   "__export_source": "hermes-agent",
   "resources": [
     {
-      "_id": "__base__",
+      "_id": "wrk_aex_scaffold",
       "_type": "workspace",
+      "parentId": null,
       "name": "AEX Scaffold",
-      "scope": "design",
-      "description": "Minimal Agentic Execution Exchange — LMSR-priced agent task market"
+      "description": "Minimal Agentic Execution Exchange — LMSR-priced agent task market",
+      "scope": "collection",
+      "modified": 1719500000000,
+      "created": 1719500000000
     },
     {
-      "_id": "env__base",
+      "_id": "env_aex_base",
       "_type": "environment",
-      "parentId": "__base__",
+      "parentId": "wrk_aex_scaffold",
       "name": "Base Environment",
       "data": {
         "base_url": "http://localhost:8081",
@@ -22,21 +25,35 @@
         "dag_economy": "dag-0",
         "dag_balanced": "dag-1",
         "dag_premium": "dag-2"
-      }
+      },
+      "modified": 1719500000000,
+      "created": 1719500000000
     },
 
     {
-      "_id": "fld_agents",
+      "_id": "env_aex_private",
+      "_type": "environment",
+      "parentId": "wrk_aex_scaffold",
+      "name": "Private Environment (no data)",
+      "data": {},
+      "modified": 1719500000000,
+      "created": 1719500000000
+    },
+
+    {
+      "_id": "grp_aex_agents",
       "_type": "request_group",
-      "parentId": "__base__",
+      "parentId": "wrk_aex_scaffold",
       "name": "Agent Management",
-      "description": "Register and inspect agents"
+      "description": "Register and inspect agents",
+      "modified": 1719500000000,
+      "created": 1719500000000
     },
 
     {
-      "_id": "req_register_alice",
+      "_id": "req_aex_reg_alice",
       "_type": "request",
-      "parentId": "fld_agents",
+      "parentId": "grp_aex_agents",
       "name": "Register Alice (expert)",
       "url": "{{ base_url }}/agents/register",
       "method": "POST",
@@ -48,13 +65,15 @@
         { "name": "Content-Type", "value": "application/json" }
       ],
       "authentication": {},
-      "metaSortKey": 1
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 1
     },
 
     {
-      "_id": "req_register_bob",
+      "_id": "req_aex_reg_bob",
       "_type": "request",
-      "parentId": "fld_agents",
+      "parentId": "grp_aex_agents",
       "name": "Register Bob (skilled)",
       "url": "{{ base_url }}/agents/register",
       "method": "POST",
@@ -66,13 +85,15 @@
         { "name": "Content-Type", "value": "application/json" }
       ],
       "authentication": {},
-      "metaSortKey": 2
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 2
     },
 
     {
-      "_id": "req_register_carol",
+      "_id": "req_aex_reg_carol",
       "_type": "request",
-      "parentId": "fld_agents",
+      "parentId": "grp_aex_agents",
       "name": "Register Carol (competent)",
       "url": "{{ base_url }}/agents/register",
       "method": "POST",
@@ -84,13 +105,15 @@
         { "name": "Content-Type", "value": "application/json" }
       ],
       "authentication": {},
-      "metaSortKey": 3
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 3
     },
 
     {
-      "_id": "req_register_dave",
+      "_id": "req_aex_reg_dave",
       "_type": "request",
-      "parentId": "fld_agents",
+      "parentId": "grp_aex_agents",
       "name": "Register Dave (novice)",
       "url": "{{ base_url }}/agents/register",
       "method": "POST",
@@ -102,45 +125,53 @@
         { "name": "Content-Type", "value": "application/json" }
       ],
       "authentication": {},
-      "metaSortKey": 4
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 4
     },
 
     {
-      "_id": "req_list_agents",
+      "_id": "req_aex_list_agents",
       "_type": "request",
-      "parentId": "fld_agents",
+      "parentId": "grp_aex_agents",
       "name": "List All Agents",
       "url": "{{ base_url }}/agents",
       "method": "GET",
       "headers": [],
       "authentication": {},
-      "metaSortKey": 5
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 5
     },
 
     {
-      "_id": "req_reputation",
+      "_id": "req_aex_rep_alice",
       "_type": "request",
-      "parentId": "fld_agents",
+      "parentId": "grp_aex_agents",
       "name": "Get Reputation (alice)",
       "url": "{{ base_url }}/reputation/alice",
       "method": "GET",
       "headers": [],
       "authentication": {},
-      "metaSortKey": 6
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 6
     },
 
     {
-      "_id": "fld_tasks",
+      "_id": "grp_aex_tasks",
       "_type": "request_group",
-      "parentId": "__base__",
+      "parentId": "wrk_aex_scaffold",
       "name": "Tasks",
-      "description": "Submit and inspect tasks"
+      "description": "Submit and inspect tasks",
+      "modified": 1719500000000,
+      "created": 1719500000000
     },
 
     {
-      "_id": "req_task_simple",
+      "_id": "req_aex_task_simple",
       "_type": "request",
-      "parentId": "fld_tasks",
+      "parentId": "grp_aex_tasks",
       "name": "Submit Task (simple)",
       "url": "{{ base_url }}/tasks",
       "method": "POST",
@@ -152,13 +183,15 @@
         { "name": "Content-Type", "value": "application/json" }
       ],
       "authentication": {},
-      "metaSortKey": 1
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 1
     },
 
     {
-      "_id": "req_task_complex",
+      "_id": "req_aex_task_complex",
       "_type": "request",
-      "parentId": "fld_tasks",
+      "parentId": "grp_aex_tasks",
       "name": "Submit Task (complex)",
       "url": "{{ base_url }}/tasks",
       "method": "POST",
@@ -170,13 +203,15 @@
         { "name": "Content-Type", "value": "application/json" }
       ],
       "authentication": {},
-      "metaSortKey": 2
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 2
     },
 
     {
-      "_id": "req_task_dca",
+      "_id": "req_aex_task_dca",
       "_type": "request",
-      "parentId": "fld_tasks",
+      "parentId": "grp_aex_tasks",
       "name": "Submit Task (DCA strategy)",
       "url": "{{ base_url }}/tasks",
       "method": "POST",
@@ -188,33 +223,39 @@
         { "name": "Content-Type", "value": "application/json" }
       ],
       "authentication": {},
-      "metaSortKey": 3
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 3
     },
 
     {
-      "_id": "req_get_task",
+      "_id": "req_aex_get_task",
       "_type": "request",
-      "parentId": "fld_tasks",
+      "parentId": "grp_aex_tasks",
       "name": "Get Task State",
       "url": "{{ base_url }}/tasks/{{ task_id }}",
       "method": "GET",
       "headers": [],
       "authentication": {},
-      "metaSortKey": 4
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 4
     },
 
     {
-      "_id": "fld_trading",
+      "_id": "grp_aex_trading",
       "_type": "request_group",
-      "parentId": "__base__",
+      "parentId": "wrk_aex_scaffold",
       "name": "Trading",
-      "description": "Stake tokens on DAG success probabilities"
+      "description": "Stake tokens on DAG success probabilities",
+      "modified": 1719500000000,
+      "created": 1719500000000
     },
 
     {
-      "_id": "req_trade_bullish",
+      "_id": "req_aex_trade_bullish",
       "_type": "request",
-      "parentId": "fld_trading",
+      "parentId": "grp_aex_trading",
       "name": "Trade Bullish (P=0.8)",
       "url": "{{ base_url }}/tasks/{{ task_id }}/trade",
       "method": "POST",
@@ -226,13 +267,15 @@
         { "name": "Content-Type", "value": "application/json" }
       ],
       "authentication": {},
-      "metaSortKey": 1
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 1
     },
 
     {
-      "_id": "req_trade_bearish",
+      "_id": "req_aex_trade_bearish",
       "_type": "request",
-      "parentId": "fld_trading",
+      "parentId": "grp_aex_trading",
       "name": "Trade Bearish (P=0.3)",
       "url": "{{ base_url }}/tasks/{{ task_id }}/trade",
       "method": "POST",
@@ -244,13 +287,15 @@
         { "name": "Content-Type", "value": "application/json" }
       ],
       "authentication": {},
-      "metaSortKey": 2
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 2
     },
 
     {
-      "_id": "req_trade_premium",
+      "_id": "req_aex_trade_premium",
       "_type": "request",
-      "parentId": "fld_trading",
+      "parentId": "grp_aex_trading",
       "name": "Trade Premium (P=0.75)",
       "url": "{{ base_url }}/tasks/{{ task_id }}/trade",
       "method": "POST",
@@ -262,21 +307,25 @@
         { "name": "Content-Type", "value": "application/json" }
       ],
       "authentication": {},
-      "metaSortKey": 3
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 3
     },
 
     {
-      "_id": "fld_settlement",
+      "_id": "grp_aex_settlement",
       "_type": "request_group",
-      "parentId": "__base__",
+      "parentId": "wrk_aex_scaffold",
       "name": "Resolution & Settlement",
-      "description": "Close the market and submit execution results"
+      "description": "Close the market and submit execution results",
+      "modified": 1719500000000,
+      "created": 1719500000000
     },
 
     {
-      "_id": "req_resolve",
+      "_id": "req_aex_resolve",
       "_type": "request",
-      "parentId": "fld_settlement",
+      "parentId": "grp_aex_settlement",
       "name": "Resolve Market",
       "url": "{{ base_url }}/tasks/{{ task_id }}/resolve",
       "method": "POST",
@@ -288,13 +337,15 @@
         { "name": "Content-Type", "value": "application/json" }
       ],
       "authentication": {},
-      "metaSortKey": 1
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 1
     },
 
     {
-      "_id": "req_result_success",
+      "_id": "req_aex_result_ok",
       "_type": "request",
-      "parentId": "fld_settlement",
+      "parentId": "grp_aex_settlement",
       "name": "Submit Result (success)",
       "url": "{{ base_url }}/tasks/{{ task_id }}/result",
       "method": "POST",
@@ -306,13 +357,15 @@
         { "name": "Content-Type", "value": "application/json" }
       ],
       "authentication": {},
-      "metaSortKey": 2
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 2
     },
 
     {
-      "_id": "req_result_failure",
+      "_id": "req_aex_result_fail",
       "_type": "request",
-      "parentId": "fld_settlement",
+      "parentId": "grp_aex_settlement",
       "name": "Submit Result (failure)",
       "url": "{{ base_url }}/tasks/{{ task_id }}/result",
       "method": "POST",
@@ -324,27 +377,33 @@
         { "name": "Content-Type", "value": "application/json" }
       ],
       "authentication": {},
-      "metaSortKey": 3
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 3
     },
 
     {
-      "_id": "fld_health",
+      "_id": "grp_aex_health",
       "_type": "request_group",
-      "parentId": "__base__",
+      "parentId": "wrk_aex_scaffold",
       "name": "Health & Discovery",
-      "description": "Server status"
+      "description": "Server status",
+      "modified": 1719500000000,
+      "created": 1719500000000
     },
 
     {
-      "_id": "req_health",
+      "_id": "req_aex_health",
       "_type": "request",
-      "parentId": "fld_health",
+      "parentId": "grp_aex_health",
       "name": "Health Check",
       "url": "{{ base_url }}/health",
       "method": "GET",
       "headers": [],
       "authentication": {},
-      "metaSortKey": 1
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 1
     }
   ]
 }
