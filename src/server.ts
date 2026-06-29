@@ -17,12 +17,13 @@ import { generateDAGs } from "./dags";
 import { verify, isCompleted } from "./verifier";
 import { updateReputation } from "./reputation";
 import type { Agent, DAG, Task, TaskResult } from "./types";
+import {
+  initDB, saveAgent, getAgent, getAllAgents, agentExists,
+  saveTask, getTask as getTaskFromDB, getAllTasks,
+  type StoredAgent,
+} from "./db";
 
 // ── In-memory state ───────────────────────────────────────
-
-interface StoredAgent extends Agent {
-  balance: number;
-}
 
 interface TaskRecord {
   id: string;
@@ -81,6 +82,7 @@ async function handler(req: Request): Promise<Response> {
         balance: 1000,
       };
       agents.set(body.id, agent);
+      saveAgent(agent);
       return json({ agent: { id: agent.id, skill: agent.skill, reputation: agent.reputation, balance: agent.balance } });
     }
 
@@ -186,8 +188,18 @@ async function handler(req: Request): Promise<Response> {
       if (!record) return error("task not found", 404);
 
       const prices: Record<string, number> = {};
-      for (const dag of record.dags) {
-        prices[dag.id] = record.market.price(dag.id);
+      // For settled tasks loaded from DB, prices were stored separately
+      if (record.status === "settled" && record.outcomeScore !== null) {
+        const stored = getTaskFromDB(record.id);
+        if (stored) {
+          for (const dag of record.dags) {
+            prices[dag.id] = stored.prices[dag.id] ?? record.market.price(dag.id);
+          }
+        } else {
+          for (const dag of record.dags) prices[dag.id] = record.market.price(dag.id);
+        }
+      } else {
+        for (const dag of record.dags) prices[dag.id] = record.market.price(dag.id);
       }
 
       return json({
@@ -310,6 +322,21 @@ async function handler(req: Request): Promise<Response> {
       record.completed = completed;
       record.status = "settled";
 
+      // Persist: save task result and involved agents
+      const finalPrices: Record<string, number> = {};
+      for (const dag of record.dags) finalPrices[dag.id] = record.market.price(dag.id);
+      saveTask({
+        id: record.id,
+        task: record.task,
+        status: record.status,
+        dags: record.dags,
+        winnerId: record.winnerId,
+        winnerEV: record.winnerEV,
+        outcomeScore,
+        completed,
+        prices: finalPrices,
+      });
+
       // Settle: update reputation for involved agents
       const involvedIds = Array.from(new Set(winnerDag.nodes.map((n) => n.agentId)));
       const updatedReps: Array<{ agentId: string; oldRep: number; newRep: number; change: string }> = [];
@@ -318,6 +345,7 @@ async function handler(req: Request): Promise<Response> {
         if (a) {
           const oldRep = a.reputation;
           updateReputation(a, outcomeScore);
+          saveAgent(a);
           const change = ((a.reputation - oldRep) * 100).toFixed(1);
           updatedReps.push({ agentId: aid, oldRep: Math.round(oldRep * 100) / 100, newRep: Math.round(a.reputation * 100) / 100, change: `${change > "0" ? "+" : ""}${change}%` });
         }
@@ -372,13 +400,15 @@ async function handler(req: Request): Promise<Response> {
       if (body.agents) {
         for (const a of body.agents) {
           if (!agents.has(a.id)) {
-            agents.set(a.id, {
+            const newAgent: StoredAgent = {
               id: a.id,
               skill: a.skill,
               reputation: 0.5,
               jobs: 0,
               balance: 1000,
-            });
+            };
+            agents.set(a.id, newAgent);
+            saveAgent(newAgent);
             registered.push(a.id);
           }
         }
@@ -467,7 +497,20 @@ async function handler(req: Request): Promise<Response> {
       record.completed = completed;
       record.status = "settled";
 
-      // 5. Update reputation
+      // Persist: save task result
+      saveTask({
+        id: taskId,
+        task,
+        status: record.status,
+        dags,
+        winnerId: bestDag.id,
+        winnerEV: bestEV,
+        outcomeScore,
+        completed,
+        prices,
+      });
+
+      // 5. Update reputation and persist agents
       const involvedIds = Array.from(new Set(bestDag.nodes.map((n) => n.agentId)));
       const repChanges: Array<{ agentId: string; oldRep: number; newRep: number }> = [];
       for (const aid of involvedIds) {
@@ -475,6 +518,7 @@ async function handler(req: Request): Promise<Response> {
         if (a) {
           const oldRep = a.reputation;
           updateReputation(a, outcomeScore);
+          saveAgent(a);
           repChanges.push({ agentId: aid, oldRep: Math.round(oldRep * 1000) / 1000, newRep: Math.round(a.reputation * 1000) / 1000 });
         }
       }
@@ -506,6 +550,19 @@ async function handler(req: Request): Promise<Response> {
       });
     }
 
+    // ── GET /tasks (list all persisted tasks) ───────────────
+    if (method === "GET" && path === "/tasks") {
+      const stored = getAllTasks();
+      return json(stored.map((t) => ({
+        taskId: t.id,
+        goal: t.task.goal,
+        status: t.status,
+        winner: t.winnerId,
+        completed: t.completed,
+        createdAt: t.createdAt,
+      })));
+    }
+
     // ── GET /health ────────────────────────────────────────
     if (path === "/health") {
       return json({
@@ -526,6 +583,43 @@ async function handler(req: Request): Promise<Response> {
 // ── Start server ───────────────────────────────────────────
 
 const PORT = parseInt(process.env.PORT ?? "8080", 10);
+const DB_PATH = process.env.DB_PATH ?? "./aex-scaffold.db";
+
+// Initialize database and load existing data
+initDB(DB_PATH);
+
+for (const agent of getAllAgents()) {
+  agents.set(agent.id, agent);
+}
+// Recover task sequence counter from existing tasks
+const existingTasks = getAllTasks();
+let maxTaskNum = 0;
+for (const t of existingTasks) {
+  const match = t.id.match(/^task-(\d+)$/);
+  if (match) maxTaskNum = Math.max(maxTaskNum, parseInt(match[1], 10) + 1);
+}
+taskSeq = maxTaskNum;
+// Load existing tasks into read-only in-memory store
+for (const t of existingTasks) {
+  // We store them so GET /tasks/:id works, but markets aren't reconstructable
+  // (open tasks are ephemeral — only settled tasks persist)
+  if (t.status === "settled") {
+    const market = new LMSRMarket();
+    tasks.set(t.id, {
+      id: t.id,
+      task: t.task,
+      status: t.status as TaskRecord["status"],
+      dags: t.dags,
+      winnerId: t.winnerId,
+      winnerEV: t.winnerEV,
+      market,
+      outcomeScore: t.outcomeScore,
+      completed: t.completed,
+      proposerBalances: new Map(),
+    });
+  }
+}
+
 const server = Bun.serve({ port: PORT, fetch: handler });
 
 console.log(`
@@ -535,25 +629,26 @@ console.log(`
 
   Server: http://localhost:${PORT}
   Health: http://localhost:${PORT}/health
+  DB:     ${DB_PATH}
+  Agents: ${agents.size}
+  Tasks:  ${tasks.size}
 
 Endpoints:
   POST /agents/register    Create an agent
   POST /tasks              Submit a task (auto-generates DAGs)
+  GET  /tasks              List all tasks
   GET  /tasks/:id          See task state and prices
   POST /tasks/:id/trade    Stake tokens on a DAG
   POST /tasks/:id/resolve  Close market, pick winner
   POST /tasks/:id/result   Submit execution outcome
+  POST /run                Full lifecycle (one-shot)
   GET  /agents             List all agents
   GET  /reputation/:id     Agent reputation
 
 Quick start:
-  # Register agents
-  curl -X POST http://localhost:${PORT}/agents/register \\
-    -H "Content-Type: application/json" \\
-    -d '{"id":"alice","skill":0.85}'
+  # One-shot: register agents + run a task + resolve + settle
+  curl -X POST http://localhost:${PORT}/run -H "Content-Type: application/json" -d '{"agents":[{"id":"alice","skill":0.85},{"id":"bob","skill":0.70},{"id":"carol","skill":0.55},{"id":"dave","skill":0.40},{"id":"eve","skill":0.65},{"id":"frank","skill":0.50}],"task":{"goal":"Build a trading bot","budget":300,"value":1000}}'
 
-  # Submit a task
-  curl -X POST http://localhost:${PORT}/tasks \\
-    -H "Content-Type: application/json" \\
-    -d '{"goal":"Build a trading bot","budget":300,"value":1000}'
+  # Or step-by-step:
+  curl -X POST http://localhost:${PORT}/agents/register -H "Content-Type: application/json" -d '{"id":"alice","skill":0.85}'
 `);
