@@ -1,0 +1,13 @@
+{
+  "name": "aex-scaffold",
+  "version": "0.1.0",
+  "description": "Minimal AEX scaffold — LMSR-priced agent execution market",
+  "type": "module",
+  "scripts": {
+    "demo": "bun run src/demo.ts",
+    "start": "bun run src/server.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

@@ -1,0 +1,412 @@
+/**
+ * server.ts — AEX Scaffold API Server
+ *
+ * A live HTTP server that external agents can call to:
+ *  - Register as an agent
+ *  - Submit tasks (protocol auto-generates DAG strategies)
+ *  - Trade on DAG success probabilities (LMSR market)
+ *  - Resolve markets and submit execution outcomes
+ *  - Check reputation and agent rankings
+ *
+ * Zero dependencies — runs on Bun's native HTTP server.
+ * Start: bun run src/server.ts
+ */
+
+import { LMSRMarket } from "./lmsr";
+import { generateDAGs } from "./dags";
+import { verify, isCompleted } from "./verifier";
+import { updateReputation } from "./reputation";
+import type { Agent, DAG, Task, TaskResult } from "./types";
+
+// ── In-memory state ───────────────────────────────────────
+
+interface StoredAgent extends Agent {
+  balance: number;
+}
+
+interface TaskRecord {
+  id: string;
+  task: Task;
+  status: "open" | "priced" | "executed" | "settled";
+  dags: DAG[];
+  winnerId: string | null;
+  winnerEV: number | null;
+  market: LMSRMarket;
+  outcomeScore: number | null;
+  completed: boolean | null;
+  proposerBalances: Map<string, number>;
+}
+
+const agents = new Map<string, StoredAgent>();
+const tasks = new Map<string, TaskRecord>();
+let taskSeq = 0;
+let rngState = Date.now();
+
+function rand(): number {
+  rngState = (rngState * 1664525 + 1013904223) & 0x7fffffff;
+  return rngState / 0x7fffffff;
+}
+
+function json(data: unknown, status: number = 200): Response {
+  return new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+  });
+}
+
+function error(msg: string, status: number = 400): Response {
+  return json({ error: msg }, status);
+}
+
+// ── Routes ─────────────────────────────────────────────────
+
+async function handler(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const path = url.pathname;
+  const method = req.method;
+
+  try {
+    // ── POST /agents/register ───────────────────────────────
+    if (method === "POST" && path === "/agents/register") {
+      const body = await req.json() as { id: string; skill?: number };
+      if (!body.id) return error("id is required");
+      if (agents.has(body.id)) return error("agent already exists");
+
+      const skill = body.skill ?? Math.round((0.3 + rand() * 0.6) * 100) / 100;
+      const agent: StoredAgent = {
+        id: body.id,
+        skill,
+        reputation: 0.5,
+        jobs: 0,
+        balance: 1000,
+      };
+      agents.set(body.id, agent);
+      return json({ agent: { id: agent.id, skill: agent.skill, reputation: agent.reputation, balance: agent.balance } });
+    }
+
+    // ── POST /tasks ─────────────────────────────────────────
+    if (method === "POST" && path === "/tasks") {
+      const body = await req.json() as {
+        goal: string;
+        budget: number;
+        value: number;
+        latencyTarget?: string;
+        verificationLevel?: string;
+      };
+      if (!body.goal) return error("goal is required");
+      if (agents.size < 3) return error("need at least 3 registered agents");
+
+      const id = `task-${taskSeq++}`;
+      const task: Task = {
+        id,
+        goal: body.goal,
+        budget: body.budget,
+        value: body.value,
+        latencyTarget: (body.latencyTarget as Task["latencyTarget"]) ?? "normal",
+        verificationLevel: (body.verificationLevel as Task["verificationLevel"]) ?? "standard",
+      };
+
+      const agentList = Array.from(agents.values());
+      const dags = generateDAGs(task, agentList);
+      const market = new LMSRMarket();
+
+      // Open markets for all DAGs
+      for (const dag of dags) {
+        market.open(dag.id, 100);
+
+        // Agents trade based on who's assigned to each DAG
+        for (const agent of agentList) {
+          const assignedSkills = dag.nodes.map((n) => agents.get(n.agentId)?.skill ?? 0.5);
+
+          let belief: number;
+          if (dag.nodes.some((n) => n.agentId === agent.id)) {
+            // Assigned agent knows their own skill
+            belief = assignedSkills.reduce((s, v, i) => {
+              const a = agents.get(dag.nodes[i].agentId);
+              const est = a?.id === agent.id ? agent.skill : (a?.reputation ?? 0.5) * 0.8 + 0.1;
+              return s + est;
+            }, 0) / assignedSkills.length;
+          } else {
+            belief = assignedSkills.reduce((s, v, i) => {
+              const a = agents.get(dag.nodes[i].agentId);
+              return s + (a?.reputation ?? 0.5);
+            }, 0) / assignedSkills.length;
+          }
+
+          belief *= 1 - 0.05 * dag.nodes.length;
+          const deviation = Math.abs(belief - 0.5);
+          const stake = Math.max(5, Math.round(deviation * 80 * Math.max(0.2, agent.reputation)));
+
+          // Escrow balance
+          const actualStake = Math.min(stake, agent.balance);
+          if (actualStake > 0) {
+            agent.balance -= actualStake;
+            market.trade(dag.id, belief, actualStake);
+          }
+        }
+      }
+
+      // Compute prices
+      const prices: Record<string, number> = {};
+      for (const dag of dags) {
+        prices[dag.id] = market.price(dag.id);
+      }
+
+      const record: TaskRecord = {
+        id,
+        task,
+        status: "open",
+        dags,
+        winnerId: null,
+        winnerEV: null,
+        market,
+        outcomeScore: null,
+        completed: null,
+        proposerBalances: new Map(),
+      };
+      tasks.set(id, record);
+
+      return json({
+        taskId: id,
+        task,
+        dags: dags.map((d) => ({
+          id: d.id,
+          strategy: d.strategy,
+          nodes: d.nodes.map((n) => ({ id: n.id, agentId: n.agentId, type: n.type, cost: n.cost })),
+        })),
+        prices,
+        status: record.status,
+      });
+    }
+
+    // ── GET /tasks/:id ──────────────────────────────────────
+    const taskMatch = path.match(/^\/tasks\/([^/]+)$/);
+    if (method === "GET" && taskMatch) {
+      const record = tasks.get(taskMatch[1]);
+      if (!record) return error("task not found", 404);
+
+      const prices: Record<string, number> = {};
+      for (const dag of record.dags) {
+        prices[dag.id] = record.market.price(dag.id);
+      }
+
+      return json({
+        taskId: record.id,
+        task: record.task,
+        status: record.status,
+        dags: record.dags.map((d) => ({
+          id: d.id,
+          strategy: d.strategy,
+          nodes: d.nodes.map((n) => ({ agentId: n.agentId, type: n.type, cost: n.cost })),
+          totalCost: d.nodes.reduce((s, n) => s + n.cost, 0),
+        })),
+        prices,
+        winnerId: record.winnerId,
+        winnerEV: record.winnerEV,
+        outcomeScore: record.outcomeScore,
+        completed: record.completed,
+      });
+    }
+
+    // ── POST /tasks/:id/trade ──────────────────────────────
+    const tradeMatch = path.match(/^\/tasks\/([^/]+)\/trade$/);
+    if (method === "POST" && tradeMatch) {
+      const record = tasks.get(tradeMatch[1]);
+      if (!record) return error("task not found", 404);
+      if (record.status !== "open") return error("trading closed");
+
+      const body = await req.json() as { agentId: string; dagId: string; belief: number; stake: number };
+      const agent = agents.get(body.agentId);
+      if (!agent) return error("agent not found");
+      if (!record.dags.some((d) => d.id === body.dagId)) return error("dag not found for this task");
+      if (body.belief < 0 || body.belief > 1) return error("belief must be 0-1");
+      if (body.stake < 1) return error("stake must be ≥ 1");
+      if (body.stake > agent.balance) return error("insufficient balance");
+
+      agent.balance -= body.stake;
+      const newPrice = record.market.trade(body.dagId, body.belief, body.stake);
+
+      // Track who staked what for settlement
+      const key = `${body.agentId}:${body.dagId}`;
+      record.proposerBalances.set(key, (record.proposerBalances.get(key) ?? 0) + body.stake);
+
+      return json({
+        dagId: body.dagId,
+        belief: body.belief,
+        staked: body.stake,
+        newPrice: Math.round(newPrice * 1000) / 1000,
+        remainingBalance: Math.round(agent.balance * 100) / 100,
+      });
+    }
+
+    // ── POST /tasks/:id/resolve ────────────────────────────
+    const resolveMatch = path.match(/^\/tasks\/([^/]+)\/resolve$/);
+    if (method === "POST" && resolveMatch) {
+      const record = tasks.get(resolveMatch[1]);
+      if (!record) return error("task not found", 404);
+      if (record.status !== "open") return error("already resolved");
+
+      const prices: Record<string, number> = {};
+      for (const dag of record.dags) {
+        prices[dag.id] = record.market.price(dag.id);
+      }
+
+      // Pick the highest EV
+      let bestDag: DAG | null = null;
+      let bestEV = -Infinity;
+      for (const dag of record.dags) {
+        const p = prices[dag.id] ?? 0.5;
+        const cost = dag.nodes.reduce((s, n) => s + n.cost, 0);
+        const ev = p * record.task.value - cost;
+        if (ev > bestEV) {
+          bestEV = ev;
+          bestDag = dag;
+        }
+      }
+
+      if (!bestDag) return error("no feasible DAG");
+      record.winnerId = bestDag.id;
+      record.winnerEV = bestEV;
+      record.status = "priced";
+
+      return json({
+        winner: {
+          dagId: bestDag.id,
+          strategy: bestDag.strategy,
+          ev: Math.round(bestEV * 100) / 100,
+          pSuccess: Math.round((prices[bestDag.id] ?? 0.5) * 1000) / 1000,
+          cost: bestDag.nodes.reduce((s, n) => s + n.cost, 0),
+          value: record.task.value,
+        },
+        dags: Object.fromEntries(
+          record.dags.map((d) => [d.id, {
+            price: prices[d.id],
+            ev: Math.round((prices[d.id] * record.task.value - d.nodes.reduce((s, n) => s + n.cost, 0)) * 100) / 100,
+          }])
+        ),
+        status: record.status,
+      });
+    }
+
+    // ── POST /tasks/:id/result ─────────────────────────────
+    const resultMatch = path.match(/^\/tasks\/([^/]+)\/result$/);
+    if (method === "POST" && resultMatch) {
+      const record = tasks.get(resultMatch[1]);
+      if (!record) return error("task not found", 404);
+      if (record.status !== "priced") return error("task must be priced first");
+      if (!record.winnerId) return error("no winner selected");
+
+      const body = await req.json() as { agentId: string; success?: boolean };
+      const agent = agents.get(body.agentId);
+      if (!agent) return error("agent not found");
+
+      // Use the verifier to compute outcome
+      const winnerDag = record.dags.find((d) => d.id === record.winnerId)!;
+      const agentMap = new Map(Array.from(agents.values()).map((a) => [a.id, a as Agent]));
+      const outcomeScore = verify(winnerDag, agentMap, record.task, () => rand());
+      const completed = body.success !== undefined ? body.success : isCompleted(outcomeScore, record.task);
+
+      record.outcomeScore = outcomeScore;
+      record.completed = completed;
+      record.status = "settled";
+
+      // Settle: update reputation for involved agents
+      const involvedIds = Array.from(new Set(winnerDag.nodes.map((n) => n.agentId)));
+      const updatedReps: Array<{ agentId: string; oldRep: number; newRep: number; change: string }> = [];
+      for (const aid of involvedIds) {
+        const a = agents.get(aid);
+        if (a) {
+          const oldRep = a.reputation;
+          updateReputation(a, outcomeScore);
+          const change = ((a.reputation - oldRep) * 100).toFixed(1);
+          updatedReps.push({ agentId: aid, oldRep: Math.round(oldRep * 100) / 100, newRep: Math.round(a.reputation * 100) / 100, change: `${change > "0" ? "+" : ""}${change}%` });
+        }
+      }
+
+      return json({
+        taskId: record.id,
+        outcomeScore: Math.round(outcomeScore * 1000) / 1000,
+        completed,
+        winningDag: winnerDag.strategy,
+        reputations: updatedReps,
+        status: record.status,
+      });
+    }
+
+    // ── GET /agents ─────────────────────────────────────────
+    if (method === "GET" && path === "/agents") {
+      const list = Array.from(agents.values()).map((a) => ({
+        id: a.id,
+        skill: Math.round(a.skill * 100) / 100,
+        reputation: Math.round(a.reputation * 100) / 100,
+        jobs: a.jobs,
+        balance: Math.round(a.balance * 100) / 100,
+      }));
+      return json(list);
+    }
+
+    // ── GET /reputation/:agentId ────────────────────────────
+    const repMatch = path.match(/^\/reputation\/([^/]+)$/);
+    if (method === "GET" && repMatch) {
+      const agent = agents.get(repMatch[1]);
+      if (!agent) return error("agent not found", 404);
+      return json({
+        agentId: agent.id,
+        skill: Math.round(agent.skill * 100) / 100,
+        reputation: Math.round(agent.reputation * 100) / 100,
+        jobs: agent.jobs,
+        balance: Math.round(agent.balance * 100) / 100,
+      });
+    }
+
+    // ── GET /health ────────────────────────────────────────
+    if (path === "/health") {
+      return json({
+        service: "aex-scaffold",
+        status: "ok",
+        agents: agents.size,
+        tasks: tasks.size,
+        openTasks: Array.from(tasks.values()).filter((t) => t.status === "open").length,
+      });
+    }
+
+    return error("not found", 404);
+  } catch (e) {
+    return error((e as Error).message);
+  }
+}
+
+// ── Start server ───────────────────────────────────────────
+
+const PORT = parseInt(process.env.PORT ?? "8080", 10);
+const server = Bun.serve({ port: PORT, fetch: handler });
+
+console.log(`
+╔══════════════════════════════════════════════════════════╗
+║             AEX Scaffold API Server                     ║
+╚══════════════════════════════════════════════════════════╝
+
+  Server: http://localhost:${PORT}
+  Health: http://localhost:${PORT}/health
+
+Endpoints:
+  POST /agents/register    Create an agent
+  POST /tasks              Submit a task (auto-generates DAGs)
+  GET  /tasks/:id          See task state and prices
+  POST /tasks/:id/trade    Stake tokens on a DAG
+  POST /tasks/:id/resolve  Close market, pick winner
+  POST /tasks/:id/result   Submit execution outcome
+  GET  /agents             List all agents
+  GET  /reputation/:id     Agent reputation
+
+Quick start:
+  # Register agents
+  curl -X POST http://localhost:${PORT}/agents/register \\
+    -H "Content-Type: application/json" \\
+    -d '{"id":"alice","skill":0.85}'
+
+  # Submit a task
+  curl -X POST http://localhost:${PORT}/tasks \\
+    -H "Content-Type: application/json" \\
+    -d '{"goal":"Build a trading bot","budget":300,"value":1000}'
+`);
