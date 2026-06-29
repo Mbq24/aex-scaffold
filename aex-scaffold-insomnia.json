@@ -1,0 +1,350 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-06-27T16:00:00.000Z",
+  "__export_source": "hermes-agent",
+  "resources": [
+    {
+      "_id": "__base__",
+      "_type": "workspace",
+      "name": "AEX Scaffold",
+      "scope": "design",
+      "description": "Minimal Agentic Execution Exchange — LMSR-priced agent task market"
+    },
+    {
+      "_id": "env__base",
+      "_type": "environment",
+      "parentId": "__base__",
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:8081",
+        "task_id": "task-0",
+        "dag_economy": "dag-0",
+        "dag_balanced": "dag-1",
+        "dag_premium": "dag-2"
+      }
+    },
+
+    {
+      "_id": "fld_agents",
+      "_type": "request_group",
+      "parentId": "__base__",
+      "name": "Agent Management",
+      "description": "Register and inspect agents"
+    },
+
+    {
+      "_id": "req_register_alice",
+      "_type": "request",
+      "parentId": "fld_agents",
+      "name": "Register Alice (expert)",
+      "url": "{{ base_url }}/agents/register",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"id\": \"alice\",\n  \"skill\": 0.85\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "metaSortKey": 1
+    },
+
+    {
+      "_id": "req_register_bob",
+      "_type": "request",
+      "parentId": "fld_agents",
+      "name": "Register Bob (skilled)",
+      "url": "{{ base_url }}/agents/register",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"id\": \"bob\",\n  \"skill\": 0.70\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "metaSortKey": 2
+    },
+
+    {
+      "_id": "req_register_carol",
+      "_type": "request",
+      "parentId": "fld_agents",
+      "name": "Register Carol (competent)",
+      "url": "{{ base_url }}/agents/register",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"id\": \"carol\",\n  \"skill\": 0.55\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "metaSortKey": 3
+    },
+
+    {
+      "_id": "req_register_dave",
+      "_type": "request",
+      "parentId": "fld_agents",
+      "name": "Register Dave (novice)",
+      "url": "{{ base_url }}/agents/register",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"id\": \"dave\",\n  \"skill\": 0.40\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "metaSortKey": 4
+    },
+
+    {
+      "_id": "req_list_agents",
+      "_type": "request",
+      "parentId": "fld_agents",
+      "name": "List All Agents",
+      "url": "{{ base_url }}/agents",
+      "method": "GET",
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 5
+    },
+
+    {
+      "_id": "req_reputation",
+      "_type": "request",
+      "parentId": "fld_agents",
+      "name": "Get Reputation (alice)",
+      "url": "{{ base_url }}/reputation/alice",
+      "method": "GET",
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 6
+    },
+
+    {
+      "_id": "fld_tasks",
+      "_type": "request_group",
+      "parentId": "__base__",
+      "name": "Tasks",
+      "description": "Submit and inspect tasks"
+    },
+
+    {
+      "_id": "req_task_simple",
+      "_type": "request",
+      "parentId": "fld_tasks",
+      "name": "Submit Task (simple)",
+      "url": "{{ base_url }}/tasks",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"goal\": \"Fetch BTC price from Coinbase\",\n  \"budget\": 50,\n  \"value\": 200,\n  \"latencyTarget\": \"fast\",\n  \"verificationLevel\": \"lenient\"\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "metaSortKey": 1
+    },
+
+    {
+      "_id": "req_task_complex",
+      "_type": "request",
+      "parentId": "fld_tasks",
+      "name": "Submit Task (complex)",
+      "url": "{{ base_url }}/tasks",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"goal\": \"Build a cross-chain bridge monitor\",\n  \"budget\": 600,\n  \"value\": 3000,\n  \"latencyTarget\": \"batch\",\n  \"verificationLevel\": \"strict\"\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "metaSortKey": 2
+    },
+
+    {
+      "_id": "req_task_dca",
+      "_type": "request",
+      "parentId": "fld_tasks",
+      "name": "Submit Task (DCA strategy)",
+      "url": "{{ base_url }}/tasks",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"goal\": \"Build a DCA strategy for ETH\",\n  \"budget\": 300,\n  \"value\": 1200\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "metaSortKey": 3
+    },
+
+    {
+      "_id": "req_get_task",
+      "_type": "request",
+      "parentId": "fld_tasks",
+      "name": "Get Task State",
+      "url": "{{ base_url }}/tasks/{{ task_id }}",
+      "method": "GET",
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 4
+    },
+
+    {
+      "_id": "fld_trading",
+      "_type": "request_group",
+      "parentId": "__base__",
+      "name": "Trading",
+      "description": "Stake tokens on DAG success probabilities"
+    },
+
+    {
+      "_id": "req_trade_bullish",
+      "_type": "request",
+      "parentId": "fld_trading",
+      "name": "Trade Bullish (P=0.8)",
+      "url": "{{ base_url }}/tasks/{{ task_id }}/trade",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"agentId\": \"alice\",\n  \"dagId\": \"{{ dag_economy }}\",\n  \"belief\": 0.8,\n  \"stake\": 50\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "metaSortKey": 1
+    },
+
+    {
+      "_id": "req_trade_bearish",
+      "_type": "request",
+      "parentId": "fld_trading",
+      "name": "Trade Bearish (P=0.3)",
+      "url": "{{ base_url }}/tasks/{{ task_id }}/trade",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"agentId\": \"bob\",\n  \"dagId\": \"{{ dag_economy }}\",\n  \"belief\": 0.3,\n  \"stake\": 30\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "metaSortKey": 2
+    },
+
+    {
+      "_id": "req_trade_premium",
+      "_type": "request",
+      "parentId": "fld_trading",
+      "name": "Trade Premium (P=0.75)",
+      "url": "{{ base_url }}/tasks/{{ task_id }}/trade",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"agentId\": \"carol\",\n  \"dagId\": \"{{ dag_premium }}\",\n  \"belief\": 0.75,\n  \"stake\": 60\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "metaSortKey": 3
+    },
+
+    {
+      "_id": "fld_settlement",
+      "_type": "request_group",
+      "parentId": "__base__",
+      "name": "Resolution & Settlement",
+      "description": "Close the market and submit execution results"
+    },
+
+    {
+      "_id": "req_resolve",
+      "_type": "request",
+      "parentId": "fld_settlement",
+      "name": "Resolve Market",
+      "url": "{{ base_url }}/tasks/{{ task_id }}/resolve",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"agentId\": \"alice\"\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "metaSortKey": 1
+    },
+
+    {
+      "_id": "req_result_success",
+      "_type": "request",
+      "parentId": "fld_settlement",
+      "name": "Submit Result (success)",
+      "url": "{{ base_url }}/tasks/{{ task_id }}/result",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"agentId\": \"alice\",\n  \"success\": true\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "metaSortKey": 2
+    },
+
+    {
+      "_id": "req_result_failure",
+      "_type": "request",
+      "parentId": "fld_settlement",
+      "name": "Submit Result (failure)",
+      "url": "{{ base_url }}/tasks/{{ task_id }}/result",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"agentId\": \"bob\",\n  \"success\": false\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "metaSortKey": 3
+    },
+
+    {
+      "_id": "fld_health",
+      "_type": "request_group",
+      "parentId": "__base__",
+      "name": "Health & Discovery",
+      "description": "Server status"
+    },
+
+    {
+      "_id": "req_health",
+      "_type": "request",
+      "parentId": "fld_health",
+      "name": "Health Check",
+      "url": "{{ base_url }}/health",
+      "method": "GET",
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": 1
+    }
+  ]
+}
