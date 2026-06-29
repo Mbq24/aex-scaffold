@@ -404,6 +404,26 @@
       "modified": 1719500000000,
       "created": 1719500000000,
       "sortKey": 1
+    },
+
+    {
+      "_id": "req_aex_run",
+      "_type": "request",
+      "parentId": "grp_aex_health",
+      "name": "Run Full Lifecycle (one-shot)",
+      "url": "{{ base_url }}/run",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"agents\": [\n    {\"id\": \"alice\", \"skill\": 0.85},\n    {\"id\": \"bob\", \"skill\": 0.70},\n    {\"id\": \"carol\", \"skill\": 0.55},\n    {\"id\": \"dave\", \"skill\": 0.40},\n    {\"id\": \"eve\", \"skill\": 0.65},\n    {\"id\": \"frank\", \"skill\": 0.50}\n  ],\n  \"task\": {\n    \"goal\": \"Build a DCA strategy for ETH\",\n    \"budget\": 300,\n    \"value\": 1200\n  }\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "authentication": {},
+      "modified": 1719500000000,
+      "created": 1719500000000,
+      "sortKey": 0
     }
   ]
 }

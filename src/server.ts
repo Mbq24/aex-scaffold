@@ -359,6 +359,153 @@ async function handler(req: Request): Promise<Response> {
       });
     }
 
+    // ── POST /run — full lifecycle in one call ═════════════
+    if (method === "POST" && path === "/run") {
+      const body = await req.json() as {
+        agents?: Array<{ id: string; skill: number }>;
+        task: { goal: string; budget: number; value: number; latencyTarget?: string; verificationLevel?: string };
+      };
+      const taskBody = body.task;
+
+      // 1. Register agents
+      const registered: string[] = [];
+      if (body.agents) {
+        for (const a of body.agents) {
+          if (!agents.has(a.id)) {
+            agents.set(a.id, {
+              id: a.id,
+              skill: a.skill,
+              reputation: 0.5,
+              jobs: 0,
+              balance: 1000,
+            });
+            registered.push(a.id);
+          }
+        }
+      }
+      if (agents.size < 3) return error("need at least 3 registered agents");
+
+      // 2. Submit task
+      const taskId = `task-${taskSeq++}`;
+      const task: Task = {
+        id: taskId,
+        goal: taskBody.goal,
+        budget: taskBody.budget,
+        value: taskBody.value,
+        latencyTarget: (taskBody.latencyTarget as Task["latencyTarget"]) ?? "normal",
+        verificationLevel: (taskBody.verificationLevel as Task["verificationLevel"]) ?? "standard",
+      };
+
+      const agentList = Array.from(agents.values());
+      const dags = generateDAGs(task, agentList);
+      const market = new LMSRMarket();
+
+      for (const dag of dags) {
+        market.open(dag.id, 100);
+        for (const agent of agentList) {
+          const assignedSkills = dag.nodes.map((n) => agents.get(n.agentId)?.skill ?? 0.5);
+          let belief: number;
+          if (dag.nodes.some((n) => n.agentId === agent.id)) {
+            belief = assignedSkills.reduce((s, v, i) => {
+              const a = agents.get(dag.nodes[i].agentId);
+              const est = a?.id === agent.id ? agent.skill : (a?.reputation ?? 0.5) * 0.8 + 0.1;
+              return s + est;
+            }, 0) / assignedSkills.length;
+          } else {
+            belief = assignedSkills.reduce((s, v, i) => {
+              const a = agents.get(dag.nodes[i].agentId);
+              return s + (a?.reputation ?? 0.5);
+            }, 0) / assignedSkills.length;
+          }
+          belief *= 1 - 0.05 * dag.nodes.length;
+          const deviation = Math.abs(belief - 0.5);
+          const stake = Math.max(5, Math.round(deviation * 80 * Math.max(0.2, agent.reputation)));
+          const actualStake = Math.min(stake, agent.balance);
+          if (actualStake > 0) {
+            agent.balance -= actualStake;
+            market.trade(dag.id, belief, actualStake);
+          }
+        }
+      }
+
+      const prices: Record<string, number> = {};
+      for (const dag of dags) prices[dag.id] = market.price(dag.id);
+
+      const record: TaskRecord = {
+        id: taskId,
+        task,
+        status: "open",
+        dags,
+        winnerId: null,
+        winnerEV: null,
+        market,
+        outcomeScore: null,
+        completed: null,
+        proposerBalances: new Map(),
+      };
+      tasks.set(taskId, record);
+
+      // 3. Resolve — pick highest EV
+      let bestDag: DAG | null = null;
+      let bestEV = -Infinity;
+      for (const dag of dags) {
+        const p = prices[dag.id] ?? 0.5;
+        const cost = dag.nodes.reduce((s, n) => s + n.cost, 0);
+        const ev = p * task.value - cost;
+        if (ev > bestEV) { bestEV = ev; bestDag = dag; }
+      }
+      if (!bestDag) return error("no feasible DAG");
+      record.winnerId = bestDag.id;
+      record.winnerEV = bestEV;
+      record.status = "priced";
+
+      // 4. Execute & verify — simulate with the verifier
+      const agentMap = new Map(Array.from(agents.values()).map((a) => [a.id, a as Agent]));
+      const outcomeScore = verify(bestDag, agentMap, task, () => rand());
+      const completed = isCompleted(outcomeScore, task);
+      record.outcomeScore = outcomeScore;
+      record.completed = completed;
+      record.status = "settled";
+
+      // 5. Update reputation
+      const involvedIds = Array.from(new Set(bestDag.nodes.map((n) => n.agentId)));
+      const repChanges: Array<{ agentId: string; oldRep: number; newRep: number }> = [];
+      for (const aid of involvedIds) {
+        const a = agents.get(aid);
+        if (a) {
+          const oldRep = a.reputation;
+          updateReputation(a, outcomeScore);
+          repChanges.push({ agentId: aid, oldRep: Math.round(oldRep * 1000) / 1000, newRep: Math.round(a.reputation * 1000) / 1000 });
+        }
+      }
+
+      return json({
+        summary: {
+          taskId,
+          goal: task.goal,
+          agents: registered.length > 0 ? `registered ${registered.length} new agents` : `used ${agents.size} existing agents`,
+        },
+        market: Object.fromEntries(
+          dags.map((d) => [d.strategy, {
+            price: Math.round((prices[d.id] ?? 0.5) * 1000) / 1000,
+            ev: Math.round(((prices[d.id] ?? 0.5) * task.value - d.nodes.reduce((s, n) => s + n.cost, 0)) * 100) / 100,
+            nodes: d.nodes.map((n) => ({ agentId: n.agentId, type: n.type })),
+          }])
+        ),
+        winner: {
+          strategy: bestDag.strategy,
+          dagId: bestDag.id,
+          pSuccess: Math.round((prices[bestDag.id] ?? 0.5) * 1000) / 1000,
+          ev: Math.round(bestEV * 100) / 100,
+        },
+        outcome: {
+          completed,
+          score: Math.round(outcomeScore * 1000) / 1000,
+        },
+        reputationChanges: repChanges,
+      });
+    }
+
     // ── GET /health ────────────────────────────────────────
     if (path === "/health") {
       return json({
