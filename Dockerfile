@@ -14,8 +14,9 @@ COPY package.json tsconfig.json ./
 # No runtime deps needed, but install dev deps for type checking
 RUN bun install --production
 
-# Copy source code
+# Copy source code and dashboard
 COPY src/ ./src/
+COPY dashboard.html ./dashboard.html
 
 # Expose port (Railway sets PORT env var, default 8080)
 EXPOSE 8080
