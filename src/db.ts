@@ -64,6 +64,10 @@ export function initDB(path: string = "aex-scaffold.db"): void {
       bonds_json        TEXT NOT NULL DEFAULT '[]',
       created_at        TEXT NOT NULL DEFAULT (datetime('now'))
     )`);
+
+  // Migrate old DBs: add columns if they don't exist
+  try { db.run(`ALTER TABLE tasks ADD COLUMN verification_class TEXT NOT NULL DEFAULT 'sharp'`); } catch {}
+  try { db.run(`ALTER TABLE tasks ADD COLUMN bonds_json TEXT NOT NULL DEFAULT '[]'`); } catch {}
 }
 // ── Agents ──────────────────────────────────────────────────
 
