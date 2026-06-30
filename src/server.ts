@@ -629,6 +629,15 @@ async function handler(req: Request): Promise<Response> {
       })));
     }
 
+    // ── GET /dashboard ──────────────────────────────────────
+    if (path === "/dashboard") {
+      const html = await Bun.file("./dashboard.html").text();
+      return new Response(html, {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8", "Access-Control-Allow-Origin": "*" },
+      });
+    }
+
     // ── GET /health ────────────────────────────────────────
     if (path === "/health") {
       return json({
