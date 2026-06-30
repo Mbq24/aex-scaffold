@@ -194,6 +194,31 @@ async function load() {
       document.getElementById('open-tasks').innerHTML = '<p style="color:#8b949e">No open markets</p>';
     }
 
+    // Bond activity — fetch recent settled task details for bond info
+    const bondHtml = [];
+    if (Array.isArray(tasks) && tasks.length) {
+      for (const t of tasks.slice(0, 5)) {
+        try {
+          const detail = await fetch(API + `/tasks/${t.taskId}`).then(r => r.json());
+          const bonds = detail.bonds;
+          if (Array.isArray(bonds) && bonds.length > 0) {
+            for (const b of bonds) {
+              const icon = b.status === 'released' ? '✅' : b.status === 'slashed' ? '❌' : '🔒';
+              bondHtml.push(`<div class="dag-row">
+                <span>${icon}</span>
+                <span style="flex:1"><code>${t.taskId}</code> ${b.agentId}</span>
+                <span>\$${b.amount}</span>
+                <span style="width:80px;text-align:right">${b.status}</span>
+              </div>`);
+            }
+          }
+        } catch(e) { /* skip */ }
+      }
+    }
+    document.getElementById('bonds-table').innerHTML = bondHtml.length
+      ? bondHtml.join('')
+      : '<p style="color:#8b949e">No bonds recorded — resolve a task to see bond escrow and slashing</p>';
+
   } catch(e) {
     document.querySelectorAll('.loading, .stat').forEach(el => el.textContent = 'Error');
     const msg = `<div class="error-msg">Failed to connect: ${e.message}</div>`;

@@ -228,6 +228,7 @@ async function handler(req: Request): Promise<Response> {
         winnerEV: record.winnerEV,
         outcomeScore: record.outcomeScore,
         completed: record.completed,
+        bonds: record.bonds.map((b) => ({ agentId: b.agentId, amount: b.amount, threshold: b.threshold, status: b.status })),
       });
     }
 
@@ -356,10 +357,10 @@ async function handler(req: Request): Promise<Response> {
 
       // ── Bond settlement: release or slash based on outcome ──
       const BOND_THRESHOLD = 0.5;
-      const settledBonds: Array<{ agentId: string; amount: number; status: string }> = [];
+      const settledBonds: Array<{ agentId: string; amount: number; threshold: number; status: string }> = [];
       for (const bond of record.bonds) {
         if (bond.status !== "active") {
-          settledBonds.push({ agentId: bond.agentId, amount: bond.amount, status: bond.status });
+          settledBonds.push({ agentId: bond.agentId, amount: bond.amount, threshold: bond.threshold, status: bond.status });
           continue;
         }
         if (outcomeScore >= BOND_THRESHOLD) {
@@ -368,12 +369,12 @@ async function handler(req: Request): Promise<Response> {
           if (a) {
             a.balance += bond.amount;
             bond.status = "released";
-            settledBonds.push({ agentId: bond.agentId, amount: bond.amount, status: "released" });
+            settledBonds.push({ agentId: bond.agentId, amount: bond.amount, threshold: bond.threshold, status: "released" });
           }
         } else {
           // Slash bond — forfeit to the treasury (not returned to agent)
           bond.status = "slashed";
-          settledBonds.push({ agentId: bond.agentId, amount: bond.amount, status: "slashed" });
+          settledBonds.push({ agentId: bond.agentId, amount: bond.amount, threshold: bond.threshold, status: "slashed" });
         }
       }
 
