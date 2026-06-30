@@ -24,6 +24,7 @@ export interface StoredTask {
   outcomeScore: number | null;
   completed: boolean | null;
   prices: Record<string, number>;
+  bonds: string; // JSON array of Bond — stored as string since it's not a simple type
   createdAt: string;
 }
 
@@ -45,14 +46,14 @@ export function initDB(path: string = "aex-scaffold.db"): void {
     )
   `);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS tasks (
+  db.run(`CREATE TABLE IF NOT EXISTS tasks (
       id                TEXT PRIMARY KEY,
       goal              TEXT NOT NULL,
       budget            REAL NOT NULL,
       value             REAL NOT NULL,
       latency_target    TEXT NOT NULL DEFAULT 'normal',
       verification_level TEXT NOT NULL DEFAULT 'standard',
+      verification_class TEXT NOT NULL DEFAULT 'sharp',
       status            TEXT NOT NULL DEFAULT 'settled',
       winner_id         TEXT,
       winner_ev         REAL,
@@ -60,11 +61,10 @@ export function initDB(path: string = "aex-scaffold.db"): void {
       completed         INTEGER,
       dags_json         TEXT NOT NULL,
       prices_json       TEXT NOT NULL,
+      bonds_json        TEXT NOT NULL DEFAULT '[]',
       created_at        TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-  `);
+    )`);
 }
-
 // ── Agents ──────────────────────────────────────────────────
 
 export function saveAgent(agent: StoredAgent): void {
@@ -115,13 +115,14 @@ export function saveTask(record: {
   outcomeScore: number | null;
   completed: boolean | null;
   prices: Record<string, number>;
+  bonds?: Array<{ agentId: string; amount: number; threshold: number; status: string }>;
 }): void {
   db.run(
     `INSERT OR REPLACE INTO tasks
-     (id, goal, budget, value, latency_target, verification_level,
+     (id, goal, budget, value, latency_target, verification_level, verification_class,
       status, winner_id, winner_ev, outcome_score, completed,
-      dags_json, prices_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      dags_json, prices_json, bonds_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       record.id,
       record.task.goal,
@@ -129,6 +130,7 @@ export function saveTask(record: {
       record.task.value,
       record.task.latencyTarget,
       record.task.verificationLevel,
+      record.task.verificationClass,
       record.status,
       record.winnerId,
       record.winnerEV,
@@ -136,6 +138,7 @@ export function saveTask(record: {
       record.completed !== null ? (record.completed ? 1 : 0) : null,
       JSON.stringify(record.dags),
       JSON.stringify(record.prices),
+      JSON.stringify(record.bonds ?? []),
     ],
   );
 }
@@ -152,6 +155,7 @@ export function getTask(id: string): StoredTask | null {
       value: row.value,
       latencyTarget: row.latency_target,
       verificationLevel: row.verification_level,
+      verificationClass: row.verification_class,
     },
     status: row.status,
     dags: JSON.parse(row.dags_json),
@@ -160,6 +164,7 @@ export function getTask(id: string): StoredTask | null {
     outcomeScore: row.outcome_score,
     completed: row.completed === null ? null : row.completed === 1,
     prices: JSON.parse(row.prices_json),
+    bonds: row.bonds_json,
     createdAt: row.created_at,
   };
 }
@@ -175,6 +180,7 @@ export function getAllTasks(): StoredTask[] {
       value: r.value,
       latencyTarget: r.latency_target,
       verificationLevel: r.verification_level,
+      verificationClass: r.verification_class,
     },
     status: r.status,
     dags: JSON.parse(r.dags_json),
@@ -183,6 +189,7 @@ export function getAllTasks(): StoredTask[] {
     outcomeScore: r.outcome_score,
     completed: r.completed === null ? null : r.completed === 1,
     prices: JSON.parse(r.prices_json),
+    bonds: r.bonds_json,
     createdAt: r.created_at,
   }));
 }

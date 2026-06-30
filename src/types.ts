@@ -16,6 +16,19 @@ export interface Agent {
   jobs: number;
 }
 
+/** Verification class — how the task's outcome will be checked.
+ *
+ * sharp         → deterministic re-run (tests, computation, schema checks)
+ * onchain       → settled by on-chain state (tx landed, position value)
+ * committed     → submitter commits hidden test (revealed at settlement)
+ * ensemble      → N independent re-executions with agreement threshold
+ * subjective    → human/Schelling judgment — NOT admitted by default
+ */
+export type VerificationClass = "sharp" | "onchain" | "committed" | "ensemble" | "subjective";
+
+/** The set of verification classes that are admissible for market trading. */
+export const ADMITTED_CLASSES: VerificationClass[] = ["sharp", "onchain", "committed", "ensemble"];
+
 /** A task submitted to the market for execution. */
 export interface Task {
   id: string;
@@ -29,6 +42,22 @@ export interface Task {
   latencyTarget: "fast" | "normal" | "batch";
   /** Verification strictness. */
   verificationLevel: "lenient" | "standard" | "strict";
+  /** How this task will be verified. Must be in ADMITTED_CLASSES. */
+  verificationClass: VerificationClass;
+}
+
+/** A bond posted by an agent on a winning DAG.
+ *  If the outcome score falls below the threshold, the bond is slashed
+ *  to the counterparty (task submitter / treasury).
+ */
+export interface Bond {
+  agentId: string;
+  /** Amount escrowed. */
+  amount: number;
+  /** Outcome threshold below which the bond is forfeit (0-1). */
+  threshold: number;
+  /** Status of this bond. */
+  status: "active" | "released" | "slashed";
 }
 
 /** A single node in an execution DAG — one unit of work by one agent. */

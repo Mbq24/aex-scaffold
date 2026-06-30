@@ -16,7 +16,8 @@ import { LMSRMarket } from "./lmsr";
 import { generateDAGs } from "./dags";
 import { verify, isCompleted } from "./verifier";
 import { updateReputation } from "./reputation";
-import type { Agent, DAG, Task, TaskResult } from "./types";
+import type { Agent, DAG, Task, TaskResult, VerificationClass, Bond } from "./types";
+import { ADMITTED_CLASSES } from "./types";
 import {
   initDB, saveAgent, getAgent, getAllAgents, agentExists,
   saveTask, getTask as getTaskFromDB, getAllTasks,
@@ -36,6 +37,7 @@ interface TaskRecord {
   outcomeScore: number | null;
   completed: boolean | null;
   proposerBalances: Map<string, number>;
+  bonds: Bond[];
 }
 
 const agents = new Map<string, StoredAgent>();
@@ -94,9 +96,16 @@ async function handler(req: Request): Promise<Response> {
         value: number;
         latencyTarget?: string;
         verificationLevel?: string;
+        verificationClass?: string;
       };
       if (!body.goal) return error("goal is required");
       if (agents.size < 3) return error("need at least 3 registered agents");
+
+      // Validate verification class
+      const vc = (body.verificationClass ?? "sharp") as VerificationClass;
+      if (!ADMITTED_CLASSES.includes(vc)) {
+        return error(`verificationClass must be one of: ${ADMITTED_CLASSES.join(", ")} (got "${vc}")`);
+      }
 
       const id = `task-${taskSeq++}`;
       const task: Task = {
@@ -106,6 +115,7 @@ async function handler(req: Request): Promise<Response> {
         value: body.value,
         latencyTarget: (body.latencyTarget as Task["latencyTarget"]) ?? "normal",
         verificationLevel: (body.verificationLevel as Task["verificationLevel"]) ?? "standard",
+        verificationClass: vc,
       };
 
       const agentList = Array.from(agents.values());
@@ -165,6 +175,7 @@ async function handler(req: Request): Promise<Response> {
         outcomeScore: null,
         completed: null,
         proposerBalances: new Map(),
+        bonds: [],
       };
       tasks.set(id, record);
 
@@ -281,6 +292,26 @@ async function handler(req: Request): Promise<Response> {
       record.winnerEV = bestEV;
       record.status = "priced";
 
+      // ── Bond escrow: lock 20% of winning DAG cost from assigned agents ──
+      const BOND_PCT = 0.2;
+      const escrowed: Bond[] = [];
+      for (const node of bestDag.nodes) {
+        const agent = agents.get(node.agentId);
+        if (agent) {
+          const bondAmount = Math.min(Math.round(node.cost * BOND_PCT), agent.balance);
+          if (bondAmount > 0) {
+            agent.balance -= bondAmount;
+            escrowed.push({
+              agentId: agent.id,
+              amount: bondAmount,
+              threshold: 0.5,
+              status: "active",
+            });
+          }
+        }
+      }
+      record.bonds = escrowed;
+
       return json({
         winner: {
           dagId: bestDag.id,
@@ -296,6 +327,7 @@ async function handler(req: Request): Promise<Response> {
             ev: Math.round((prices[d.id] * record.task.value - d.nodes.reduce((s, n) => s + n.cost, 0)) * 100) / 100,
           }])
         ),
+        bonds: escrowed.map((b) => ({ agentId: b.agentId, amount: b.amount, threshold: b.threshold, status: b.status })),
         status: record.status,
       });
     }
@@ -322,6 +354,29 @@ async function handler(req: Request): Promise<Response> {
       record.completed = completed;
       record.status = "settled";
 
+      // ── Bond settlement: release or slash based on outcome ──
+      const BOND_THRESHOLD = 0.5;
+      const settledBonds: Array<{ agentId: string; amount: number; status: string }> = [];
+      for (const bond of record.bonds) {
+        if (bond.status !== "active") {
+          settledBonds.push({ agentId: bond.agentId, amount: bond.amount, status: bond.status });
+          continue;
+        }
+        if (outcomeScore >= BOND_THRESHOLD) {
+          // Release bond back to agent
+          const a = agents.get(bond.agentId);
+          if (a) {
+            a.balance += bond.amount;
+            bond.status = "released";
+            settledBonds.push({ agentId: bond.agentId, amount: bond.amount, status: "released" });
+          }
+        } else {
+          // Slash bond — forfeit to the treasury (not returned to agent)
+          bond.status = "slashed";
+          settledBonds.push({ agentId: bond.agentId, amount: bond.amount, status: "slashed" });
+        }
+      }
+
       // Persist: save task result and involved agents
       const finalPrices: Record<string, number> = {};
       for (const dag of record.dags) finalPrices[dag.id] = record.market.price(dag.id);
@@ -335,6 +390,7 @@ async function handler(req: Request): Promise<Response> {
         outcomeScore,
         completed,
         prices: finalPrices,
+        bonds: settledBonds,
       });
 
       // Settle: update reputation for involved agents
@@ -357,6 +413,7 @@ async function handler(req: Request): Promise<Response> {
         completed,
         winningDag: winnerDag.strategy,
         reputations: updatedReps,
+        bonds: settledBonds,
         status: record.status,
       });
     }
@@ -391,9 +448,15 @@ async function handler(req: Request): Promise<Response> {
     if (method === "POST" && path === "/run") {
       const body = await req.json() as {
         agents?: Array<{ id: string; skill: number }>;
-        task: { goal: string; budget: number; value: number; latencyTarget?: string; verificationLevel?: string };
+        task: { goal: string; budget: number; value: number; latencyTarget?: string; verificationLevel?: string; verificationClass?: string };
       };
       const taskBody = body.task;
+
+      // Validate verification class
+      const vc = (taskBody.verificationClass ?? "sharp") as VerificationClass;
+      if (!ADMITTED_CLASSES.includes(vc)) {
+        return error(`verificationClass must be one of: ${ADMITTED_CLASSES.join(", ")} (got "${vc}")`);
+      }
 
       // 1. Register agents
       const registered: string[] = [];
@@ -424,6 +487,7 @@ async function handler(req: Request): Promise<Response> {
         value: taskBody.value,
         latencyTarget: (taskBody.latencyTarget as Task["latencyTarget"]) ?? "normal",
         verificationLevel: (taskBody.verificationLevel as Task["verificationLevel"]) ?? "standard",
+        verificationClass: vc,
       };
 
       const agentList = Array.from(agents.values());
@@ -472,6 +536,7 @@ async function handler(req: Request): Promise<Response> {
         outcomeScore: null,
         completed: null,
         proposerBalances: new Map(),
+        bonds: [],
       };
       tasks.set(taskId, record);
 
@@ -616,6 +681,7 @@ for (const t of existingTasks) {
       outcomeScore: t.outcomeScore,
       completed: t.completed,
       proposerBalances: new Map(),
+      bonds: [],
     });
   }
 }
