@@ -23,7 +23,6 @@
   }
   .card h2 { font-size: 14px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
   .stat { font-size: 32px; font-weight: 600; }
-  .stat-label { font-size: 12px; color: #8b949e; }
 
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { text-align: left; color: #8b949e; font-weight: 500; padding: 8px 12px; border-bottom: 1px solid #30363d; }
@@ -46,6 +45,7 @@
 
   .error-msg { color: #f85149; padding: 20px; text-align: center; }
   .loading { color: #8b949e; padding: 20px; text-align: center; }
+  .success-msg { color: #3fb950; font-size: 12px; margin-top: 6px; }
 
   .open-task { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px; margin-bottom: 8px; }
   .open-task h3 { font-size: 14px; margin-bottom: 8px; }
@@ -57,6 +57,49 @@
 
   .refresh { float: right; font-size: 12px; color: #58a6ff; cursor: pointer; text-decoration: none; }
   .refresh:hover { text-decoration: underline; }
+
+  /* Form styles */
+  .form-row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group label { font-size: 11px; color: #8b949e; text-transform: uppercase; }
+  .form-group input, .form-group select {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #c9d1d9;
+    font-size: 13px;
+    outline: none;
+    min-width: 100px;
+  }
+  .form-group input:focus, .form-group select:focus {
+    border-color: #58a6ff;
+  }
+  .form-group input.skill-input { min-width: 70px; width: 70px; }
+  .form-group input.budget-input { min-width: 80px; width: 80px; }
+  .btn {
+    background: #238636;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:hover { background: #2ea043; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-subtle {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 8px 16px;
+    color: #c9d1d9;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .btn-subtle:hover { background: #30363d; }
+  .form-feedback { font-size: 12px; margin-top: 6px; min-height: 18px; }
 </style>
 </head>
 <body>
@@ -72,6 +115,55 @@
   <div class="card"><h2>Settled Tasks</h2><div class="stat" id="stat-tasks">—</div></div>
   <div class="card"><h2>Open Markets</h2><div class="stat" id="stat-open">—</div></div>
   <div class="card"><h2>Status</h2><div class="stat" id="stat-status">—</div></div>
+</div>
+
+<div class="grid" style="grid-template-columns: 1fr 2fr;">
+  <!-- Register Agent -->
+  <div class="card">
+    <h2>Register Agent</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Agent ID</label>
+        <input type="text" id="agent-id" placeholder="e.g. my-bot" value="">
+      </div>
+      <div class="form-group">
+        <label>Skill (0–1)</label>
+        <input type="number" id="agent-skill" class="skill-input" min="0" max="1" step="0.05" value="0.7">
+      </div>
+      <button class="btn" onclick="registerAgent()">+ Register</button>
+    </div>
+    <div class="form-feedback" id="register-feedback"></div>
+  </div>
+
+  <!-- Submit Task -->
+  <div class="card">
+    <h2>Submit Task</h2>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label>Goal</label>
+        <input type="text" id="task-goal" placeholder="e.g. Audit protocol" value="Analyze DeFi liquidity">
+      </div>
+      <div class="form-group">
+        <label>Budget</label>
+        <input type="number" id="task-budget" class="budget-input" min="100" value="300">
+      </div>
+      <div class="form-group">
+        <label>Value</label>
+        <input type="number" id="task-value" class="budget-input" min="200" value="1200">
+      </div>
+      <div class="form-group">
+        <label>Class</label>
+        <select id="task-class">
+          <option value="sharp">sharp</option>
+          <option value="onchain">onchain</option>
+          <option value="committed">committed</option>
+          <option value="ensemble">ensemble</option>
+        </select>
+      </div>
+      <button class="btn" onclick="submitTask()">+ Submit</button>
+    </div>
+    <div class="form-feedback" id="task-feedback"></div>
+  </div>
 </div>
 
 <div class="card" style="margin-bottom: 24px;">
@@ -161,9 +253,8 @@ async function load() {
       document.getElementById('tasks-table').innerHTML = '<p style="color:#8b949e">No settled tasks</p>';
     }
 
-    // Open tasks — fetch each to get DAG details
+    // Open tasks
     if (health.openTasks > 0) {
-      // Try task-1, task-2, etc. by scanning backwards
       let openHtml = '';
       for (let i = health.tasks + 1; i >= 0; i--) {
         try {
@@ -173,8 +264,7 @@ async function load() {
             openHtml += `<div class="open-task">
               <h3>${detail.task?.goal || 'Unknown'} <code style="font-size:12px;color:#8b949e">task-${i}</code></h3>`;
             for (const dag of dags) {
-              // price might be in a nested structure
-              const price = (dag.price ?? dag.market?.price ?? 0.5);
+              const price = (dag.price ?? detail.prices?.[dag.id] ?? 0.5);
               const pct = Math.round(price * 100);
               const hue = Math.round(120 * price);
               openHtml += `<div class="dag-row">
@@ -185,16 +275,14 @@ async function load() {
             }
             openHtml += `</div>`;
           }
-        } catch(e) {
-          // skipped — task might not exist
-        }
+        } catch(e) { /* skip */ }
       }
       document.getElementById('open-tasks').innerHTML = openHtml || '<p style="color:#8b949e">No open tasks with details available</p>';
     } else {
       document.getElementById('open-tasks').innerHTML = '<p style="color:#8b949e">No open markets</p>';
     }
 
-    // Bond activity — fetch recent settled task details for bond info
+    // Bond activity
     const bondHtml = [];
     if (Array.isArray(tasks) && tasks.length) {
       for (const t of tasks.slice(0, 5)) {
@@ -217,7 +305,7 @@ async function load() {
     }
     document.getElementById('bonds-table').innerHTML = bondHtml.length
       ? bondHtml.join('')
-      : '<p style="color:#8b949e">No bonds recorded — resolve a task to see bond escrow and slashing</p>';
+      : '<p style="color:#8b949e">No bonds recorded — resolve a task to see bond activity</p>';
 
   } catch(e) {
     document.querySelectorAll('.loading, .stat').forEach(el => el.textContent = 'Error');
@@ -225,6 +313,59 @@ async function load() {
     document.getElementById('agent-table').innerHTML = msg;
     document.getElementById('tasks-table').innerHTML = msg;
     document.getElementById('open-tasks').innerHTML = msg;
+  }
+}
+
+async function registerAgent() {
+  const id = document.getElementById('agent-id').value.trim();
+  const skill = parseFloat(document.getElementById('agent-skill').value);
+  const fb = document.getElementById('register-feedback');
+  if (!id) { fb.innerHTML = '<span style="color:#f85149">Enter an agent ID</span>'; return; }
+  if (isNaN(skill) || skill < 0 || skill > 1) { fb.innerHTML = '<span style="color:#f85149">Skill must be 0–1</span>'; return; }
+  fb.innerHTML = 'Registering...';
+  try {
+    const r = await fetch(API + '/agents/register', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({id, skill}),
+    });
+    const d = await r.json();
+    if (d.agent) {
+      fb.innerHTML = `<span class="success-msg">✅ ${d.agent.id} registered (skill=${d.agent.skill}, balance=$${d.agent.balance})</span>`;
+    } else if (d.error) {
+      fb.innerHTML = `<span style="color:#f85149">${d.error}</span>`;
+    }
+    load();
+  } catch(e) {
+    fb.innerHTML = `<span style="color:#f85149">${e.message}</span>`;
+  }
+}
+
+async function submitTask() {
+  const goal = document.getElementById('task-goal').value.trim();
+  const budget = parseInt(document.getElementById('task-budget').value);
+  const value = parseInt(document.getElementById('task-value').value);
+  const vc = document.getElementById('task-class').value;
+  const fb = document.getElementById('task-feedback');
+  if (!goal) { fb.innerHTML = '<span style="color:#f85149">Enter a goal</span>'; return; }
+  fb.innerHTML = 'Submitting...';
+  try {
+    const r = await fetch(API + '/run', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({task: {goal, budget, value, verificationClass: vc}}),
+    });
+    const d = await r.json();
+    if (d.summary) {
+      const score = d.outcome?.score?.toFixed(3) ?? '?';
+      const winner = d.winner?.strategy ?? '?';
+      fb.innerHTML = `<span class="success-msg">✅ ${d.summary.taskId}: winner=${winner} score=${score}</span>`;
+    } else if (d.error) {
+      fb.innerHTML = `<span style="color:#f85149">${d.error}</span>`;
+    }
+    load();
+  } catch(e) {
+    fb.innerHTML = `<span style="color:#f85149">${e.message}</span>`;
   }
 }
 
