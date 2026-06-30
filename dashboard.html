@@ -84,9 +84,14 @@
   <div id="tasks-table"><div class="loading">Loading...</div></div>
 </div>
 
-<div class="card">
+<div class="card" style="margin-bottom: 24px;">
   <h2>Open Markets</h2>
   <div id="open-tasks"><div class="loading">Loading...</div></div>
+</div>
+
+<div class="card">
+  <h2>Bond Activity</h2>
+  <div id="bonds-table"><div class="loading">Loading...</div></div>
 </div>
 
 <script>
@@ -132,7 +137,7 @@ async function load() {
 
     // Settled tasks
     if (Array.isArray(tasks) && tasks.length) {
-      let html = `<table><tr><th>Task</th><th>Goal</th><th>Status</th><th>Winner</th><th>Completed</th></tr>`;
+      let html = `<table><tr><th>Task</th><th>Goal</th><th>Class</th><th>Status</th><th>Winner</th><th>Done</th></tr>`;
       for (const t of tasks) {
         const statusBadge = t.status === 'settled'
           ? '<span class="badge badge-settled">settled</span>'
@@ -140,9 +145,11 @@ async function load() {
         const doneBadge = t.completed
           ? '<span class="badge badge-done">failed</span>'
           : '<span class="badge badge-settled">done</span>';
+        const vc = t.verificationClass || 'sharp';
         html += `<tr>
           <td><code>${t.taskId}</code></td>
           <td>${t.goal}</td>
+          <td><span class="badge badge-open">${vc}</span></td>
           <td>${statusBadge}</td>
           <td><code>${t.winner ?? '—'}</code></td>
           <td>${doneBadge}</td>

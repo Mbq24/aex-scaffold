@@ -624,6 +624,7 @@ async function handler(req: Request): Promise<Response> {
         status: t.status,
         winner: t.winnerId,
         completed: t.completed,
+        verificationClass: t.task.verificationClass,
         createdAt: t.createdAt,
       })));
     }
