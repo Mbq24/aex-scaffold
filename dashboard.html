@@ -110,6 +110,16 @@
   .agent-mini .rep-dot {
     width: 6px; height: 6px; border-radius: 50%; display: inline-block;
   }
+
+  /* Legend */
+  .legend {
+    display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+    padding: 8px 14px; background: #0d1117; border-radius: 6px; font-size: 11px; margin-bottom: 16px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  }
 </style>
 </head>
 <body>
@@ -119,6 +129,19 @@
   <span id="api-url">https://blissful-simplicity-production.up.railway.app</span>
   · <a href="#" onclick="location.reload()" style="color:#58a6ff;text-decoration:none">↻ refresh</a>
 </p>
+
+<!-- Legend -->
+<div class="legend">
+  <span class="legend-item">★ <span style="color:#3fb950">Winner</span></span>
+  <span class="legend-item"><span title="Task completed successfully — outcome score was high enough">✅ Done</span></span>
+  <span class="legend-item"><span title="Task failed — outcome score was too low">❌ Failed</span></span>
+  <span class="legend-item"><span title="Task is still open for trading">🔄 Open</span></span>
+  <span class="legend-item"><span title="Bond was returned to agent — outcome scored ≥ threshold">✅ Bond Released</span></span>
+  <span class="legend-item"><span title="Bond was forfeited — outcome scored < threshold">❌ Bond Slashed</span></span>
+  <span class="legend-item"><span class="legend-dot" style="background:#3fb950"></span> EV bar — higher = better expected value</span>
+  <span class="legend-item"><span class="legend-dot" style="background:#1f6feb"></span> Price bar — higher = market believes more</span>
+  <span class="legend-item"><code style="font-size:10px;color:#58a6ff">sharp</code> <span style="color:#8b949e">Verification class</span></span>
+</div>
 
 <!-- Stats + Forms -->
 <div class="flex" style="margin-bottom:16px">
@@ -211,11 +234,12 @@ function renderTaskList() {
     const cls = t.taskId === selectedTaskId ? 'task-item selected' : 'task-item';
     const vc = t.verificationClass || 'sharp';
     const done = t.completed ? '❌' : '✅';
+    const doneTitle = t.completed ? 'Task failed — outcome score was below threshold' : 'Task completed — outcome score was sufficient';
     return `<div class="${cls}" onclick="selectTask('${t.taskId}')">
       <span style="font-size:10px;color:#8b949e;min-width:50px"><code>${t.taskId}</code></span>
       <span style="flex:1">${t.goal}</span>
       <span class="badge badge-open">${vc}</span>
-      <span>${done}</span>
+      <span title="${doneTitle}">${done}</span>
     </div>`;
   }).join('') + '</div>';
 }
@@ -249,7 +273,7 @@ function renderNodeFlow(nodes) {
     const repPct = agent ? Math.round((agent.reputation??0)*100) : 50;
     const hue = Math.round(repPct * 1.2);
     const arrow = i < nodes.length - 1 ? '<span class="arrow">→</span>' : '';
-    return `<div class="node-card">
+    return `<div class="node-card" title="${n.agentId} performing ${n.type} at cost $${n.cost}">
       <div class="name">${n.agentId}</div>
       <div class="role">${n.type}</div>
       <div class="cost">\$${n.cost}</div>
@@ -264,10 +288,10 @@ function renderDAGCard(dag, price, ev, totalCost, isWinner) {
   const evPct = maxEV > 0 ? Math.round((ev / maxEV) * 100) : 0;
 
   return `<div class="dag-card ${isWinner ? 'winner' : ''}">
-    <h3>
-      ${dag.strategy}
-      ${isWinner ? '<span class="dag-winner-badge">★ winner</span>' : ''}
-    </h3>
+  <h3>
+    ${dag.strategy}
+    ${isWinner ? '<span class="dag-winner-badge" title="This DAG had the highest Expected Value — selected by the market">★ winner</span>' : ''}
+  </h3>
     <div class="node-flow">${renderNodeFlow(dag.nodes)}</div>
     <div style="margin-top:8px">
       <div class="dag-stat"><span class="lbl">Total Cost</span><span class="val">\$${totalCost}</span></div>
@@ -396,8 +420,13 @@ async function renderDAGExplorer(taskId) {
       bondHtml = '<div style="margin-top:16px;padding-top:12px;border-top:1px solid #21262d"><h2 style="font-size:13px;color:#8b949e;text-transform:uppercase;margin-bottom:8px">Bond Activity</h2>';
       for (const b of detail.bonds) {
         const icon = b.status === 'released' ? '✅' : b.status === 'slashed' ? '❌' : '🔒';
+        const tip = b.status === 'released'
+          ? 'Bond returned — outcome score was ≥ 0.5'
+          : b.status === 'slashed'
+            ? 'Bond forfeited — outcome score was < 0.5'
+            : 'Bond currently escrowed';
         bondHtml += `<div class="dag-row" style="display:flex;gap:8px;font-size:12px;padding:3px 0">
-          <span>${icon}</span>
+          <span title="${tip}">${icon}</span>
           <span><strong>${b.agentId}</strong></span>
           <span style="color:#8b949e">bonded \$${b.amount}</span>
           <span class="badge ${b.status === 'released' ? 'badge-settled' : 'badge-fail'}">${b.status}</span>
