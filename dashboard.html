@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AEX Scaffold Dashboard</title>
+<title>AEX Scaffold — Market Explorer</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -12,363 +12,450 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
     padding: 24px;
   }
-  h1 { font-size: 24px; margin-bottom: 4px; }
-  .subtitle { color: #8b949e; margin-bottom: 24px; font-size: 14px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  h1 { font-size: 22px; }
+  .sub { color: #8b949e; font-size: 13px; margin: 4px 0 20px; }
+  .flex { display: flex; gap: 16px; flex-wrap: wrap; }
   .card {
     background: #161b22;
     border: 1px solid #30363d;
     border-radius: 8px;
-    padding: 20px;
+    padding: 16px;
   }
-  .card h2 { font-size: 14px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-  .stat { font-size: 32px; font-weight: 600; }
+  .card h2 { font-size: 13px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .stat-row { display: flex; gap: 16px; }
+  .stat { font-size: 26px; font-weight: 600; }
+  .stat-label { font-size: 11px; color: #8b949e; }
 
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; color: #8b949e; font-weight: 500; padding: 8px 12px; border-bottom: 1px solid #30363d; }
-  td { padding: 10px 12px; border-bottom: 1px solid #21262d; }
-  tr:hover td { background: #1c2128; }
-
-  .badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 500;
-  }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: 500; }
   .badge-settled { background: #1a3a1a; color: #3fb950; }
   .badge-open { background: #1a2d3a; color: #58a6ff; }
-  .badge-done { background: #3a1a1a; color: #f85149; }
+  .badge-fail { background: #3a1a1a; color: #f85149; }
 
-  .rep-bar { display: inline-block; height: 8px; border-radius: 4px; background: #1f6feb; margin-right: 8px; vertical-align: middle; }
-  .rep-bar-bg { background: #21262d; height: 8px; border-radius: 4px; width: 100px; display: inline-block; vertical-align: middle; }
-
-  .error-msg { color: #f85149; padding: 20px; text-align: center; }
-  .loading { color: #8b949e; padding: 20px; text-align: center; }
-  .success-msg { color: #3fb950; font-size: 12px; margin-top: 6px; }
-
-  .open-task { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px; margin-bottom: 8px; }
-  .open-task h3 { font-size: 14px; margin-bottom: 8px; }
-  .dag-row { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; font-size: 12px; }
-  .dag-price { width: 60px; text-align: right; font-family: monospace; }
-  .dag-bar { flex: 1; height: 6px; border-radius: 3px; background: #21262d; }
-  .dag-fill { height: 6px; border-radius: 3px; transition: width 0.5s; }
-  .dag-name { width: 80px; }
-
-  .refresh { float: right; font-size: 12px; color: #58a6ff; cursor: pointer; text-decoration: none; }
-  .refresh:hover { text-decoration: underline; }
-
-  /* Form styles */
-  .form-row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
-  .form-group { display: flex; flex-direction: column; gap: 4px; }
-  .form-group label { font-size: 11px; color: #8b949e; text-transform: uppercase; }
-  .form-group input, .form-group select {
-    background: #0d1117;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    padding: 8px 12px;
-    color: #c9d1d9;
-    font-size: 13px;
-    outline: none;
-    min-width: 100px;
-  }
-  .form-group input:focus, .form-group select:focus {
-    border-color: #58a6ff;
-  }
-  .form-group input.skill-input { min-width: 70px; width: 70px; }
-  .form-group input.budget-input { min-width: 80px; width: 80px; }
   .btn {
-    background: #238636;
-    border: none;
-    border-radius: 6px;
-    padding: 8px 16px;
-    color: #fff;
-    font-size: 13px;
-    cursor: pointer;
-    white-space: nowrap;
+    background: #238636; border: none; border-radius: 6px; padding: 7px 14px; color: #fff;
+    font-size: 12px; cursor: pointer; white-space: nowrap;
   }
   .btn:hover { background: #2ea043; }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-subtle {
-    background: #21262d;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    padding: 8px 16px;
-    color: #c9d1d9;
-    font-size: 13px;
-    cursor: pointer;
+    background: #21262d; border: 1px solid #30363d; border-radius: 6px;
+    padding: 7px 14px; color: #c9d1d9; font-size: 12px; cursor: pointer;
   }
   .btn-subtle:hover { background: #30363d; }
-  .form-feedback { font-size: 12px; margin-top: 6px; min-height: 18px; }
+  .btn-active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+
+  .form-group { display: flex; flex-direction: column; gap: 3px; }
+  .form-group label { font-size: 10px; color: #8b949e; text-transform: uppercase; }
+  .form-group input, .form-group select {
+    background: #0d1117; border: 1px solid #30363d; border-radius: 6px;
+    padding: 7px 10px; color: #c9d1d9; font-size: 12px; outline: none;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: #58a6ff; }
+  .form-feedback { font-size: 11px; margin-top: 4px; min-height: 16px; }
+
+  /* Task list */
+  .task-list { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; }
+  .task-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    border-radius: 6px; cursor: pointer; font-size: 12px; border: 1px solid transparent;
+  }
+  .task-item:hover { background: #1c2128; }
+  .task-item.selected { background: #1c2128; border-color: #1f6feb; }
+
+  /* DAG flow */
+  .dag-compare { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .dag-card {
+    background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 14px;
+    position: relative;
+  }
+  .dag-card.winner { border-color: #3fb950; box-shadow: 0 0 0 1px #3fb95033; }
+  .dag-card h3 { font-size: 13px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .dag-winner-badge {
+    background: #1a3a1a; color: #3fb950; font-size: 9px; padding: 1px 6px;
+    border-radius: 8px; font-weight: 500; text-transform: uppercase;
+  }
+  .node-flow { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+  .node-card {
+    background: #21262d; border: 1px solid #30363d; border-radius: 6px;
+    padding: 6px 10px; text-align: center; font-size: 10px; min-width: 70px; flex: 1;
+  }
+  .node-card .name { font-size: 11px; font-weight: 500; }
+  .node-card .role { color: #8b949e; font-size: 9px; }
+  .node-card .cost { color: #58a6ff; font-size: 9px; margin-top: 2px; }
+  .arrow { color: #30363d; font-size: 14px; flex-shrink: 0; }
+
+  .dag-stat { display: flex; justify-content: space-between; font-size: 11px; padding: 3px 0; border-top: 1px solid #21262d; }
+  .dag-stat:first-of-type { border-top: none; }
+  .dag-stat .lbl { color: #8b949e; }
+  .dag-stat .val { font-weight: 500; font-family: monospace; }
+
+  /* Price bar */
+  .pbar-bg { background: #21262d; height: 8px; border-radius: 4px; flex: 1; margin: 0 8px; }
+  .pbar-fill { height: 8px; border-radius: 4px; transition: width 0.5s; }
+
+  /* EV comparison bar */
+  .ev-chart { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .ev-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+  .ev-label { width: 70px; text-align: right; }
+  .ev-bar-bg { flex: 1; height: 14px; background: #21262d; border-radius: 4px; position: relative; }
+  .ev-bar-fill { height: 14px; border-radius: 4px; position: absolute; left: 0; top: 0; }
+  .ev-bar-fill.winner { background: #3fb950; }
+  .ev-bar-fill.loser { background: #30363d; }
+  .ev-val { width: 50px; text-align: right; font-family: monospace; font-size: 11px; }
+
+  /* Agent cards */
+  .agent-mini {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #1c2128; padding: 2px 8px; border-radius: 4px; font-size: 10px;
+  }
+  .agent-mini .rep-dot {
+    width: 6px; height: 6px; border-radius: 50%; display: inline-block;
+  }
 </style>
 </head>
 <body>
 
-<h1>AEX Scaffold</h1>
-<p class="subtitle">
+<h1>AEX Scaffold — Market Explorer</h1>
+<p class="sub">
   <span id="api-url">https://blissful-simplicity-production.up.railway.app</span>
-  · <a class="refresh" href="#" onclick="location.reload()">↻ refresh</a>
+  · <a href="#" onclick="location.reload()" style="color:#58a6ff;text-decoration:none">↻ refresh</a>
 </p>
 
-<div class="grid" id="stats-grid">
-  <div class="card"><h2>Agents</h2><div class="stat" id="stat-agents">—</div></div>
-  <div class="card"><h2>Settled Tasks</h2><div class="stat" id="stat-tasks">—</div></div>
-  <div class="card"><h2>Open Markets</h2><div class="stat" id="stat-open">—</div></div>
-  <div class="card"><h2>Status</h2><div class="stat" id="stat-status">—</div></div>
-</div>
-
-<div class="grid" style="grid-template-columns: 1fr 2fr;">
-  <!-- Register Agent -->
-  <div class="card">
-    <h2>Register Agent</h2>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Agent ID</label>
-        <input type="text" id="agent-id" placeholder="e.g. my-bot" value="">
-      </div>
-      <div class="form-group">
-        <label>Skill (0–1)</label>
-        <input type="number" id="agent-skill" class="skill-input" min="0" max="1" step="0.05" value="0.7">
-      </div>
+<!-- Stats + Forms -->
+<div class="flex" style="margin-bottom:16px">
+  <div class="card" style="flex:0.7;min-width:280px">
+    <div class="stat-row" style="gap:24px">
+      <div><div class="stat" id="stat-agents">—</div><div class="stat-label">Agents</div></div>
+      <div><div class="stat" id="stat-tasks">—</div><div class="stat-label">Tasks</div></div>
+      <div><div class="stat" id="stat-open">—</div><div class="stat-label">Open</div></div>
+      <div><div class="stat" id="stat-status">—</div><div class="stat-label" id="stat-status-label">Status</div></div>
+    </div>
+  </div>
+  <div class="card" style="flex:1.3;min-width:320px">
+    <div class="flex" style="gap:8px;align-items:end">
+      <div class="form-group" style="flex:1"><label>Agent ID</label><input type="text" id="agent-id" placeholder="my-bot" value=""></div>
+      <div class="form-group" style="width:60px"><label>Skill</label><input type="number" id="agent-skill" min="0" max="1" step="0.05" value="0.7"></div>
       <button class="btn" onclick="registerAgent()">+ Register</button>
+      <div style="width:1px;height:30px;background:#30363d;margin:0 4px"></div>
+      <div class="form-group" style="flex:1.5"><label>Goal</label><input type="text" id="task-goal" value="Analyze DeFi liquidity"></div>
+      <div class="form-group" style="width:65px"><label>Budget</label><input type="number" id="task-budget" min="100" value="300"></div>
+      <div class="form-group" style="width:65px"><label>Value</label><input type="number" id="task-value" min="200" value="1200"></div>
+      <div class="form-group" style="width:80px"><label>Class</label>
+        <select id="task-class"><option>sharp</option><option>onchain</option><option>committed</option><option>ensemble</option></select>
+      </div>
+      <button class="btn" onclick="submitTask()">+ Task</button>
     </div>
-    <div class="form-feedback" id="register-feedback"></div>
-  </div>
-
-  <!-- Submit Task -->
-  <div class="card">
-    <h2>Submit Task</h2>
-    <div class="form-row">
-      <div class="form-group" style="flex:1">
-        <label>Goal</label>
-        <input type="text" id="task-goal" placeholder="e.g. Audit protocol" value="Analyze DeFi liquidity">
-      </div>
-      <div class="form-group">
-        <label>Budget</label>
-        <input type="number" id="task-budget" class="budget-input" min="100" value="300">
-      </div>
-      <div class="form-group">
-        <label>Value</label>
-        <input type="number" id="task-value" class="budget-input" min="200" value="1200">
-      </div>
-      <div class="form-group">
-        <label>Class</label>
-        <select id="task-class">
-          <option value="sharp">sharp</option>
-          <option value="onchain">onchain</option>
-          <option value="committed">committed</option>
-          <option value="ensemble">ensemble</option>
-        </select>
-      </div>
-      <button class="btn" onclick="submitTask()">+ Submit</button>
-    </div>
-    <div class="form-feedback" id="task-feedback"></div>
+    <div id="form-feedback" class="form-feedback" style="margin-top:8px"></div>
   </div>
 </div>
 
-<div class="card" style="margin-bottom: 24px;">
-  <h2>Agent Leaderboard</h2>
-  <div id="agent-table"><div class="loading">Loading...</div></div>
-</div>
+<!-- Main layout: sidebar + DAG view -->
+<div class="flex" style="align-items:start">
+  <!-- Left: task list + agents -->
+  <div class="card" style="flex:1;min-width:220px;max-width:300px">
+    <h2>Tasks <span style="font-weight:400;color:#8b949e;margin-left:4px">· click to explore</span></h2>
+    <div id="task-list"><div class="loading">Loading...</div></div>
+    <div style="margin-top:12px;border-top:1px solid #21262d;padding-top:10px">
+      <h2>Agent Leaderboard</h2>
+      <div id="agent-mini-list"></div>
+    </div>
+  </div>
 
-<div class="card" style="margin-bottom: 24px;">
-  <h2>Recent Tasks</h2>
-  <div id="tasks-table"><div class="loading">Loading...</div></div>
-</div>
-
-<div class="card" style="margin-bottom: 24px;">
-  <h2>Open Markets</h2>
-  <div id="open-tasks"><div class="loading">Loading...</div></div>
-</div>
-
-<div class="card">
-  <h2>Bond Activity</h2>
-  <div id="bonds-table"><div class="loading">Loading...</div></div>
+  <!-- Right: DAG explorer -->
+  <div class="card" style="flex:3;min-width:500px">
+    <div id="dag-explorer">
+      <div class="loading" style="padding:40px">Select a task from the left panel to explore its DAGs</div>
+    </div>
+  </div>
 </div>
 
 <script>
-const API = 'https://blissful-simplicity-production.up.railway.app';
+const API = document.getElementById('api-url').textContent;
 
+// ── State ──
+let allTasks = [];
+let allAgents = [];
+let selectedTaskId = null;
+
+// ── Load ──
 async function load() {
   try {
     const [health, agents, tasks] = await Promise.all([
-      fetch(API + '/health').then(r => r.json()),
-      fetch(API + '/agents').then(r => r.json()),
-      fetch(API + '/tasks').then(r => r.json()),
+      fetch(API+'/health').then(r=>r.json()),
+      fetch(API+'/agents').then(r=>r.json()),
+      fetch(API+'/tasks').then(r=>r.json()),
     ]);
+    allTasks = Array.isArray(tasks) ? tasks : [];
+    allAgents = Array.isArray(agents) ? agents : [];
 
     document.getElementById('stat-agents').textContent = health.agents ?? '?';
     document.getElementById('stat-tasks').textContent = health.tasks ?? '?';
     document.getElementById('stat-open').textContent = health.openTasks ?? '?';
-    const statusEl = document.getElementById('stat-status');
-    statusEl.textContent = health.status ?? '?';
-    statusEl.style.color = health.status === 'ok' ? '#3fb950' : '#f85149';
+    const se = document.getElementById('stat-status');
+    se.textContent = health.status ?? '?';
+    se.style.color = health.status === 'ok' ? '#3fb950' : '#f85149';
 
-    // Agent leaderboard
-    if (Array.isArray(agents) && agents.length) {
-      agents.sort((a, b) => (b.reputation ?? 0) - (a.reputation ?? 0));
-      let html = `<table><tr><th>Agent</th><th>Skill</th><th>Reputation</th><th>Jobs</th><th>Balance</th></tr>`;
-      for (const a of agents) {
-        const repPct = Math.round((a.reputation ?? 0) * 100);
-        html += `<tr>
-          <td><strong>${a.id}</strong></td>
-          <td>${(a.skill ?? 0).toFixed(2)}</td>
-          <td>
-            <span class="rep-bar-bg"><span class="rep-bar" style="width:${repPct}%"></span></span>
-            ${repPct}%
-          </td>
-          <td>${a.jobs ?? 0}</td>
-          <td>$${a.balance ?? 0}</td>
-        </tr>`;
-      }
-      html += '</table>';
-      document.getElementById('agent-table').innerHTML = html;
-    } else {
-      document.getElementById('agent-table').innerHTML = '<p style="color:#8b949e">No agents registered</p>';
+    renderTaskList();
+    renderAgentMini();
+    if (selectedTaskId && allTasks.some(t => t.taskId === selectedTaskId)) {
+      renderDAGExplorer(selectedTaskId);
     }
-
-    // Settled tasks
-    if (Array.isArray(tasks) && tasks.length) {
-      let html = `<table><tr><th>Task</th><th>Goal</th><th>Class</th><th>Status</th><th>Winner</th><th>Done</th></tr>`;
-      for (const t of tasks) {
-        const statusBadge = t.status === 'settled'
-          ? '<span class="badge badge-settled">settled</span>'
-          : '<span class="badge badge-open">open</span>';
-        const doneBadge = t.completed
-          ? '<span class="badge badge-done">failed</span>'
-          : '<span class="badge badge-settled">done</span>';
-        const vc = t.verificationClass || 'sharp';
-        html += `<tr>
-          <td><code>${t.taskId}</code></td>
-          <td>${t.goal}</td>
-          <td><span class="badge badge-open">${vc}</span></td>
-          <td>${statusBadge}</td>
-          <td><code>${t.winner ?? '—'}</code></td>
-          <td>${doneBadge}</td>
-        </tr>`;
-      }
-      html += '</table>';
-      document.getElementById('tasks-table').innerHTML = html;
-    } else {
-      document.getElementById('tasks-table').innerHTML = '<p style="color:#8b949e">No settled tasks</p>';
-    }
-
-    // Open tasks
-    if (health.openTasks > 0) {
-      let openHtml = '';
-      for (let i = health.tasks + 1; i >= 0; i--) {
-        try {
-          const detail = await fetch(API + `/tasks/task-${i}`).then(r => r.json());
-          if (detail.status === 'open' && detail.dags) {
-            const dags = Array.isArray(detail.dags) ? detail.dags : [];
-            openHtml += `<div class="open-task">
-              <h3>${detail.task?.goal || 'Unknown'} <code style="font-size:12px;color:#8b949e">task-${i}</code></h3>`;
-            for (const dag of dags) {
-              const price = (dag.price ?? detail.prices?.[dag.id] ?? 0.5);
-              const pct = Math.round(price * 100);
-              const hue = Math.round(120 * price);
-              openHtml += `<div class="dag-row">
-                <span class="dag-name">${dag.strategy}</span>
-                <span class="dag-bar"><span class="dag-fill" style="width:${pct}%;background:hsl(${hue},70%,50%)"></span></span>
-                <span class="dag-price">${(price).toFixed(3)}</span>
-              </div>`;
-            }
-            openHtml += `</div>`;
-          }
-        } catch(e) { /* skip */ }
-      }
-      document.getElementById('open-tasks').innerHTML = openHtml || '<p style="color:#8b949e">No open tasks with details available</p>';
-    } else {
-      document.getElementById('open-tasks').innerHTML = '<p style="color:#8b949e">No open markets</p>';
-    }
-
-    // Bond activity
-    const bondHtml = [];
-    if (Array.isArray(tasks) && tasks.length) {
-      for (const t of tasks.slice(0, 5)) {
-        try {
-          const detail = await fetch(API + `/tasks/${t.taskId}`).then(r => r.json());
-          const bonds = detail.bonds;
-          if (Array.isArray(bonds) && bonds.length > 0) {
-            for (const b of bonds) {
-              const icon = b.status === 'released' ? '✅' : b.status === 'slashed' ? '❌' : '🔒';
-              bondHtml.push(`<div class="dag-row">
-                <span>${icon}</span>
-                <span style="flex:1"><code>${t.taskId}</code> ${b.agentId}</span>
-                <span>\$${b.amount}</span>
-                <span style="width:80px;text-align:right">${b.status}</span>
-              </div>`);
-            }
-          }
-        } catch(e) { /* skip */ }
-      }
-    }
-    document.getElementById('bonds-table').innerHTML = bondHtml.length
-      ? bondHtml.join('')
-      : '<p style="color:#8b949e">No bonds recorded — resolve a task to see bond activity</p>';
-
   } catch(e) {
-    document.querySelectorAll('.loading, .stat').forEach(el => el.textContent = 'Error');
-    const msg = `<div class="error-msg">Failed to connect: ${e.message}</div>`;
-    document.getElementById('agent-table').innerHTML = msg;
-    document.getElementById('tasks-table').innerHTML = msg;
-    document.getElementById('open-tasks').innerHTML = msg;
+    document.querySelectorAll('.loading').forEach(el => el.innerHTML = '<span style="color:#f85149">Error loading</span>');
   }
 }
 
+function renderTaskList() {
+  const el = document.getElementById('task-list');
+  if (!allTasks.length) { el.innerHTML = '<p style="color:#8b949e;font-size:12px">No tasks yet. Submit one!</p>'; return; }
+  el.innerHTML = '<div class="task-list">' + allTasks.map(t => {
+    const cls = t.taskId === selectedTaskId ? 'task-item selected' : 'task-item';
+    const vc = t.verificationClass || 'sharp';
+    const done = t.completed ? '❌' : '✅';
+    return `<div class="${cls}" onclick="selectTask('${t.taskId}')">
+      <span style="font-size:10px;color:#8b949e;min-width:50px"><code>${t.taskId}</code></span>
+      <span style="flex:1">${t.goal}</span>
+      <span class="badge badge-open">${vc}</span>
+      <span>${done}</span>
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function renderAgentMini() {
+  const el = document.getElementById('agent-mini-list');
+  if (!allAgents.length) { el.innerHTML = '<p style="color:#8b949e;font-size:11px;margin-top:6px">None registered</p>'; return; }
+  const sorted = [...allAgents].sort((a,b) => (b.reputation??0) - (a.reputation??0));
+  el.innerHTML = sorted.map(a => {
+    const repPct = Math.round((a.reputation ?? 0) * 100);
+    const hue = Math.round(repPct * 1.2);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:11px;border-bottom:1px solid #1c2128">
+      <span style="width:60px;font-weight:500">${a.id}</span>
+      <span style="color:#8b949e;width:30px">${(a.skill??0).toFixed(2)}</span>
+      <span style="flex:1;height:4px;background:#21262d;border-radius:2px">
+        <span style="display:block;height:4px;width:${repPct}%;background:hsl(${hue},70%,50%);border-radius:2px"></span>
+      </span>
+      <span style="width:30px;text-align:right">${repPct}%</span>
+      <span style="width:40px;text-align:right;color:#8b949e">\$${a.balance??0}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── DAG Explorer ──
+
+function formatEV(v) { return v >= 0 ? '$' + v.toFixed(0) : '-$' + Math.abs(v).toFixed(0); }
+
+function renderNodeFlow(nodes) {
+  return nodes.map((n, i) => {
+    const agent = allAgents.find(a => a.id === n.agentId);
+    const repPct = agent ? Math.round((agent.reputation??0)*100) : 50;
+    const hue = Math.round(repPct * 1.2);
+    const arrow = i < nodes.length - 1 ? '<span class="arrow">→</span>' : '';
+    return `<div class="node-card">
+      <div class="name">${n.agentId}</div>
+      <div class="role">${n.type}</div>
+      <div class="cost">\$${n.cost}</div>
+    </div>${arrow}`;
+  }).join('');
+}
+
+function renderDAGCard(dag, price, ev, totalCost, isWinner) {
+  const pct = Math.round(price * 100);
+  const pHue = Math.round(120 * price);
+  const maxEV = Math.max(...Object.values(window._evMap || {0:1}));
+  const evPct = maxEV > 0 ? Math.round((ev / maxEV) * 100) : 0;
+
+  return `<div class="dag-card ${isWinner ? 'winner' : ''}">
+    <h3>
+      ${dag.strategy}
+      ${isWinner ? '<span class="dag-winner-badge">★ winner</span>' : ''}
+    </h3>
+    <div class="node-flow">${renderNodeFlow(dag.nodes)}</div>
+    <div style="margin-top:8px">
+      <div class="dag-stat"><span class="lbl">Total Cost</span><span class="val">\$${totalCost}</span></div>
+      <div class="dag-stat"><span class="lbl">Market Price</span>
+        <span class="val" style="display:flex;align-items:center;gap:4px">
+          <span class="pbar-bg"><span class="pbar-fill" style="width:${pct}%;background:hsl(${pHue},70%,50%)"></span></span>
+          ${(price).toFixed(3)}
+        </span>
+      </div>
+      <div class="dag-stat"><span class="lbl">Expected Value</span>
+        <span class="val" style="color:${isWinner ? '#3fb950' : '#8b949e'}">
+          P×value − cost = ${(price).toFixed(3)}×${ev < 10000 ? 1000 : '—'} − ${totalCost} = ${formatEV(ev)}
+        </span>
+      </div>
+      <div class="ev-row" style="margin-top:4px">
+        <span class="ev-label" style="font-size:10px;color:#8b949e">EV rank</span>
+        <div class="ev-bar-bg">
+          <div class="ev-bar-fill ${isWinner ? 'winner' : 'loser'}" style="width:${evPct}%"></div>
+        </div>
+        <span class="ev-val" style="color:${isWinner ? '#3fb950' : '#8b949e'}">${formatEV(ev)}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function selectTask(taskId) {
+  selectedTaskId = taskId;
+  renderTaskList();
+  await renderDAGExplorer(taskId);
+}
+
+async function renderDAGExplorer(taskId) {
+  const el = document.getElementById('dag-explorer');
+  el.innerHTML = '<div class="loading">Loading DAGs...</div>';
+
+  try {
+    const detail = await fetch(API + `/tasks/${taskId}`).then(r => r.json());
+    const dags = Array.isArray(detail.dags) ? detail.dags : [];
+    const prices = detail.prices || {};
+    const task = detail.task || {};
+    const status = detail.status || '?';
+    const outcomeScore = detail.outcomeScore;
+    const completed = detail.completed;
+    const winnerId = detail.winnerId;
+
+    if (!dags.length) { el.innerHTML = '<p style="color:#8b949e">No DAGs for this task</p>'; return; }
+
+    // Compute EV for each DAG
+    const evMap = {};
+    for (const dag of dags) {
+      const price = prices[dag.id] ?? 0.5;
+      const cost = dag.nodes.reduce((s, n) => s + n.cost, 0);
+      evMap[dag.id] = price * (task.value || 1000) - cost;
+    }
+    window._evMap = evMap;
+
+    // Build EV chart data
+    const sorted = [...dags].sort((a,b) => (evMap[b.id] ?? 0) - (evMap[a.id] ?? 0));
+    const maxEV = Math.max(0, ...Object.values(evMap));
+
+    // Status bar
+    const statusColor = status === 'settled' ? '#3fb950' : status === 'open' ? '#58a6ff' : '#f85149';
+    const statusIcon = status === 'settled' ? '✅' : status === 'open' ? '🔄' : '❌';
+    let statusLine = `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;font-size:13px;padding-bottom:12px;border-bottom:1px solid #21262d">
+      <span>${statusIcon} <strong>${status}</strong></span>
+      <span style="color:#8b949e">|</span>
+      <span>Goal: <strong>${task.goal || '?'}</strong></span>
+      <span style="color:#8b949e">|</span>
+      <span>Budget: <strong>\$${task.budget || '?'}</strong></span>
+      <span style="color:#8b949e">|</span>
+      <span>Value: <strong>\$${task.value || '?'}</strong></span>`;
+
+    if (outcomeScore !== null && outcomeScore !== undefined) {
+      statusLine += `<span style="color:#8b949e">|</span>
+      <span>Score: <strong>${outcomeScore.toFixed(3)}</strong></span>
+      <span>${completed ? '✅ Done' : '❌ Failed'}</span>`;
+    }
+    statusLine += '</div>';
+
+    // Comparison table: EV ranking
+    let rankHtml = '<div style="margin-bottom:16px"><h2 style="font-size:13px;color:#8b949e;text-transform:uppercase;margin-bottom:8px">EV Ranking — How the Winner Was Chosen</h2>';
+    for (let i = 0; i < sorted.length; i++) {
+      const d = sorted[i];
+      const cost = d.nodes.reduce((s, n) => s + n.cost, 0);
+      const price = prices[d.id] ?? 0.5;
+      const ev = evMap[d.id] ?? 0;
+      const pct = maxEV > 0 ? Math.round((ev / maxEV) * 100) : 0;
+      const isWin = d.id === winnerId;
+      const rowColor = isWin ? '#3fb950' : '#8b949e';
+      const barColor = isWin ? '#3fb950' : '#30363d';
+      const agentsStr = d.nodes.map(n => n.agentId).join(' + ');
+
+      rankHtml += `<div class="ev-row" style="margin-bottom:4px">
+        <span style="width:18px;text-align:center;font-weight:600;color:${rowColor}">${isWin ? '★' : (i+1)}</span>
+        <span style="width:75px;font-weight:500">${d.strategy}</span>
+        <span style="width:140px;font-size:10px;color:#8b949e">${agentsStr}</span>
+        <div class="ev-bar-bg" style="height:16px">
+          <div class="ev-bar-fill ${isWin ? 'winner' : 'loser'}" style="width:${pct}%;background:${barColor};height:16px"></div>
+        </div>
+        <span style="width:30px;text-align:right;font-family:monospace;font-size:11px;color:${rowColor}">${pct}%</span>
+        <span style="width:50px;text-align:right;font-family:monospace;font-size:11px;color:${rowColor}">${formatEV(ev)}</span>
+      </div>`;
+    }
+    rankHtml += '</div>';
+
+    // The EV formula breakdown
+    rankHtml += `<div style="font-size:11px;color:#8b949e;padding:8px 12px;background:#0d1117;border-radius:6px;margin-bottom:16px">
+      <strong style="color:#c9d1d9">EV = P(success) × value − cost</strong>
+      &nbsp;·&nbsp; Price from LMSR market = capital-weighted agent consensus
+      &nbsp;·&nbsp; Winning DAG shown in <span style="color:#3fb950">green</span>
+    </div>`;
+
+    // DAG cards side by side
+    let dagHtml = '<div class="dag-compare">';
+    for (const dag of dags) {
+      const cost = dag.nodes.reduce((s, n) => s + n.cost, 0);
+      const price = prices[dag.id] ?? 0.5;
+      const ev = evMap[dag.id] ?? 0;
+      dagHtml += renderDAGCard(dag, price, ev, cost, dag.id === winnerId);
+    }
+    dagHtml += '</div>';
+
+    // Bond activity if any
+    let bondHtml = '';
+    if (Array.isArray(detail.bonds) && detail.bonds.length > 0) {
+      bondHtml = '<div style="margin-top:16px;padding-top:12px;border-top:1px solid #21262d"><h2 style="font-size:13px;color:#8b949e;text-transform:uppercase;margin-bottom:8px">Bond Activity</h2>';
+      for (const b of detail.bonds) {
+        const icon = b.status === 'released' ? '✅' : b.status === 'slashed' ? '❌' : '🔒';
+        bondHtml += `<div class="dag-row" style="display:flex;gap:8px;font-size:12px;padding:3px 0">
+          <span>${icon}</span>
+          <span><strong>${b.agentId}</strong></span>
+          <span style="color:#8b949e">bonded \$${b.amount}</span>
+          <span class="badge ${b.status === 'released' ? 'badge-settled' : 'badge-fail'}">${b.status}</span>
+        </div>`;
+      }
+      bondHtml += '</div>';
+    }
+
+    el.innerHTML = statusLine + rankHtml + dagHtml + bondHtml;
+
+  } catch(e) {
+    el.innerHTML = `<div class="error-msg">Failed to load task: ${e.message}</div>`;
+  }
+}
+
+// ── Actions ──
+
 async function registerAgent() {
-  const id = document.getElementById('agent-id').value.trim();
-  const skill = parseFloat(document.getElementById('agent-skill').value);
-  const fb = document.getElementById('register-feedback');
-  if (!id) { fb.innerHTML = '<span style="color:#f85149">Enter an agent ID</span>'; return; }
-  if (isNaN(skill) || skill < 0 || skill > 1) { fb.innerHTML = '<span style="color:#f85149">Skill must be 0–1</span>'; return; }
+  const id = document.getElementById('agent-id').value.trim() || 'bot-' + Date.now();
+  const skill = parseFloat(document.getElementById('agent-skill').value) || 0.7;
+  const fb = document.getElementById('form-feedback');
   fb.innerHTML = 'Registering...';
   try {
-    const r = await fetch(API + '/agents/register', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({id, skill}),
+    const r = await fetch(API+'/agents/register', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({id, skill: Math.max(0, Math.min(1, skill))})
     });
     const d = await r.json();
-    if (d.agent) {
-      fb.innerHTML = `<span class="success-msg">✅ ${d.agent.id} registered (skill=${d.agent.skill}, balance=$${d.agent.balance})</span>`;
-    } else if (d.error) {
-      fb.innerHTML = `<span style="color:#f85149">${d.error}</span>`;
-    }
-    load();
-  } catch(e) {
-    fb.innerHTML = `<span style="color:#f85149">${e.message}</span>`;
-  }
+    if (d.agent) { fb.innerHTML = `✅ Registered ${d.agent.id}`; load(); }
+    else if (d.error) { fb.innerHTML = `<span style="color:#f85149">${d.error}</span>`; }
+  } catch(e) { fb.innerHTML = `<span style="color:#f85149">${e.message}</span>`; }
 }
 
 async function submitTask() {
-  const goal = document.getElementById('task-goal').value.trim();
-  const budget = parseInt(document.getElementById('task-budget').value);
-  const value = parseInt(document.getElementById('task-value').value);
+  const goal = document.getElementById('task-goal').value.trim() || 'Demo task';
+  const budget = parseInt(document.getElementById('task-budget').value) || 300;
+  const value = parseInt(document.getElementById('task-value').value) || 1200;
   const vc = document.getElementById('task-class').value;
-  const fb = document.getElementById('task-feedback');
-  if (!goal) { fb.innerHTML = '<span style="color:#f85149">Enter a goal</span>'; return; }
+  const fb = document.getElementById('form-feedback');
   fb.innerHTML = 'Submitting...';
   try {
-    const r = await fetch(API + '/run', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({task: {goal, budget, value, verificationClass: vc}}),
+    const r = await fetch(API+'/run', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({task:{goal, budget, value, verificationClass: vc}})
     });
     const d = await r.json();
     if (d.summary) {
-      const score = d.outcome?.score?.toFixed(3) ?? '?';
-      const winner = d.winner?.strategy ?? '?';
-      fb.innerHTML = `<span class="success-msg">✅ ${d.summary.taskId}: winner=${winner} score=${score}</span>`;
+      const tid = d.summary.taskId;
+      fb.innerHTML = `✅ ${tid} settled — winner: ${d.winner?.strategy} (score: ${d.outcome?.score?.toFixed(3)})`;
+      selectedTaskId = tid;
+      load();
     } else if (d.error) {
       fb.innerHTML = `<span style="color:#f85149">${d.error}</span>`;
     }
-    load();
-  } catch(e) {
-    fb.innerHTML = `<span style="color:#f85149">${e.message}</span>`;
-  }
+  } catch(e) { fb.innerHTML = `<span style="color:#f85149">${e.message}</span>`; }
 }
 
+// ── Init ──
 load();
 </script>
 </body>
